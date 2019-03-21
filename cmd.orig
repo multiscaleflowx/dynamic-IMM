@@ -1,0 +1,1 @@
+aprun -n 1 pseudoOpenfoam in.CFD > output

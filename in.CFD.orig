@@ -1,0 +1,7 @@
+maxNumberOfIterations 500
+startAtIteration 1
+push force
+fetch mass_flow_rate
+firstTimeIndices
+indices
+maxIndex 0

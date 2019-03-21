@@ -1,0 +1,3 @@
+cp agenda.txt.orig agenda.txt
+cp in.CFD.orig in.CFD
+cp cmd.orig cmd

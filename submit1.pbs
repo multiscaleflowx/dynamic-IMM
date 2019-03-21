@@ -1,0 +1,17 @@
+#!/bin/bash --login
+
+#PBS -N run_1
+#PBS -l select=1
+#PBS -l walltime=00:01:00
+#PBS -A ecse1320
+
+cd $PBS_O_WORKDIR
+
+until [ -f ./halt ]; do
+
+    file=./cmd
+    cmd=$(cat "$file")
+
+    eval $cmd
+
+done
