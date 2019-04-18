@@ -1,8 +1,50 @@
 #include <map>
 #include <string>
+#include <istream>
+#include <ostream>
 #include "CFDSim.h"
 
 namespace cfdsim {
+
+  bool operator==(const Region& lhs, const Region& rhs) {
+    return lhs.interfaceName == rhs.interfaceName && \
+      lhs.ylo == rhs.ylo && \
+      lhs.yhi == rhs.yhi;
+  }
+  
+  bool operator <(const Region& r1, const Region& r2) {
+    return r1.interfaceName < r2.interfaceName;
+  }
+
+  std::ostream& operator<<(std::ostream& os, const Region& r) {
+    os << "{ " << r.interfaceName << " " << r.ylo << " " << r.yhi << " }";
+    return os;
+  }
+
+  std::istream& operator>>(std::istream& is, Region& r) {
+    std::string s;
+    bool error = false;
+    is >> s;
+    if(s != "{") {
+      error = true;
+    }
+    else {
+      is >> s;
+      r.interfaceName = s;
+      is >> s;
+      r.ylo = s;
+      is >> s;
+      r.yhi = s;
+      is >> s;
+      if(s != "}") {
+	error = true;
+      }
+    }
+      
+    if(error)
+      is.setstate(std::ios::failbit);
+    return is;
+  }
 
   CFDSim::CFDSim(char* name): cfdFileName(name) {
     readConfigFile();
@@ -43,23 +85,27 @@ namespace cfdsim {
     // The next time the simulation is run a restart file will exist and the input file has to be
     // changed accordingly.
     infs >> keyWord;
-    assert(keyWord == "firstTimeIndices");
+    assert(keyWord == "firstTimeRegions");
     getline(infs, line);
     std::istringstream str_stream4(line);
-    std::string firstTimeIndex;
-    while(str_stream4 >> firstTimeIndex) {
-      firstTimeIndices.insert(firstTimeIndex);
+    Region firstTimeRegion;
+    while(str_stream4 >> firstTimeRegion) {
+      firstTimeRegions.insert(firstTimeRegion);
     }
 
     // Initially OpenFOAM will be run alone and no interfaces will be needed.
     // Once an MD simulation is required OpenFOAM will be restarted with interfaces
     // to the required MD simulations.
+    // The lower and upper bounds of the y direction for each
+    // simulation region are specified.
     infs >> keyWord;
-    assert(keyWord == "indices");
+    assert(keyWord == "regions");
     getline(infs, line);
     std::istringstream str_stream1(line);
-    while(str_stream1 >> s) {
-     interfaceNames.emplace_back(s);
+    Region r;
+    while(str_stream1 >> r) {
+      interfaceNames.emplace_back(r.interfaceName);
+      regions.emplace_back(r);
     }
 
     infs >> keyWord;
@@ -88,15 +134,15 @@ namespace cfdsim {
     std::getline(cfdInFS, cfdline);
     cfdOutFS << cfdline <<std::endl; // Write fetch vars.
       
-    cfdOutFS << "firstTimeIndices";
-    for(std::string i : add) {
-      cfdOutFS << ' ' << i;
+    cfdOutFS << "firstTimeRegions";
+    for(auto r : add) {
+      cfdOutFS << ' ' << r;
     }
     cfdOutFS << std::endl;
 
-    cfdOutFS << "indices";
-    for(auto ifName : updatedInterfaceNames) {
-      cfdOutFS << ' ' << ifName;
+    cfdOutFS << "regions";
+    for(auto r : updatedRegions) {
+      cfdOutFS << ' ' << r;
     }
     cfdOutFS << std::endl;
 
@@ -114,9 +160,9 @@ namespace cfdsim {
     std::ofstream outfile("cmd");
     outfile << "aprun -n 1 pseudoOpenfoam " << cfdFileName;
     int i = 0;
-    for(auto index : updatedInterfaceNames) {
+    for(auto r : updatedRegions) {
       int p = nodeDistribution[i] * 24;
-      outfile << " :  -n " << p << " lmp_xc30 -in in.MD" << index;
+      outfile << " :  -n " << p << " lmp_xc30 -in in.MD" << r.interfaceName;
       i++;
     }
     outfile << " > output" << t << std::endl;
@@ -124,15 +170,21 @@ namespace cfdsim {
     std::cout << "Leaving writeCmdFile" << std::endl;
   }
 
-  void CFDSim::createInitialMDFile(std::string i, std::string startTime) {
+  void CFDSim::createInitialMDFile(Region r, std::string startTime) {
     std::cout << "Entering createInitialMDFile" << std::endl;
     std::ifstream infs("initial_MD_template");
-    std::ofstream outfs("in.MD"+ i);
+    std::ofstream outfs("in.MD"+ r.interfaceName);
     std::string line;
     while(getline(infs, line)) {
       size_t index;
       while((index = line.find("$i")) != std::string::npos) {
-	line.replace(index, 2, i);
+	line.replace(index, 2, r.interfaceName);
+      }
+      while((index = line.find("$ylo")) != std::string::npos) {
+	line.replace(index, 4, r.ylo);
+      }
+      while((index = line.find("$yhi")) != std::string::npos) {
+	line.replace(index, 4, r.yhi);
       }
       while((index = line.find("$t")) != std::string::npos) {
 	line.replace(index, 2, startTime);
@@ -142,15 +194,21 @@ namespace cfdsim {
     std::cout << "Leaving createInitialMDFile" << std::endl;
   }
 
-  void CFDSim::createRestartedMDFile(std::string i, std::string startTime) {
+  void CFDSim::createRestartedMDFile(Region r, std::string startTime) {
     std::cout << "Entering createRestartedMDFile" << std::endl;
     std::ifstream infs("restarted_MD_template");
-    std::ofstream outfs("in.MD"+ i);
+    std::ofstream outfs("in.MD"+ r.interfaceName);
     std::string line;
     while(getline(infs, line)) {
       size_t index;
       while((index = line.find("$i")) != std::string::npos) {
-	line.replace(index, 2, i);
+	line.replace(index, 2, r.interfaceName);
+      }
+      while((index = line.find("$ylo")) != std::string::npos) {
+	line.replace(index, 4, r.ylo);
+      }
+      while((index = line.find("$yhi")) != std::string::npos) {
+	line.replace(index, 4, r.yhi);
       }
       while((index = line.find("$t")) != std::string::npos) {
 	line.replace(index, 2, startTime);
@@ -164,30 +222,30 @@ namespace cfdsim {
     std::cout << "Entering changeMDs" << std::endl;
     bool change = false;
 
-    updatedInterfaceNames.clear(); // This is necessary as changeMDs may be called more than once.
+    updatedRegions.clear(); // This is necessary as changeMDs may be called more than once.
     // Make a copy of interfaceNames.
-    for(auto ifName : interfaceNames) {
-      updatedInterfaceNames.push_back(ifName);
+    for(auto r : regions) {
+      updatedRegions.push_back(r);
     }
 
     if(changesRequired()) {
 
       // Remove the interface names that are no longer needed.
-      for(std::string i : remove) {
-	auto it = std::find(updatedInterfaceNames.begin(), updatedInterfaceNames.end(), i);
-	updatedInterfaceNames.erase(it);
+      for(auto r : remove) {
+	auto it = std::find(updatedRegions.begin(), updatedRegions.end(), r);
+	updatedRegions.erase(it);
       }
 
       // Those MDs that existed before this run and are still needed must have
       // restart files created for them.
-      for(auto index : updatedInterfaceNames) {
-	createRestartedMDFile(index, std::to_string(t));
+      for(auto r : updatedRegions) {
+	createRestartedMDFile(r, std::to_string(t));
       }
 
       // Add the new interface names and create initial restart files.
-      for(std::string i : add) {
-	updatedInterfaceNames.emplace_back(i);
-	createInitialMDFile(i, std::to_string(t));
+      for(auto r : add) {
+	updatedRegions.emplace_back(r);
+	createInitialMDFile(r, std::to_string(t));
       }
 
       writeConfigFile(t);
@@ -314,7 +372,7 @@ namespace cfdsim {
 	std::cout << "run: t = " << t << std::endl;
 	int oldNumberOfMDs = interfaceNames.size();
 	if(changeMDs(t)) {
-	  int numberOfMDs = updatedInterfaceNames.size();
+	  int numberOfMDs = updatedRegions.size();
 	  std::cout << "t = " << t << ": numberOfMDs = " << numberOfMDs << std::endl;
 	  std::cout << "t = " << t << ": maxIndex = " << maxIndex << std::endl;
 	  std::vector<int> nodeDistribution(numberOfMDs);
@@ -379,12 +437,22 @@ namespace cfdsim {
 
       // Collect the indices of the new MD simulations to be created.
       if(token == std::string("add")) {
-	// Add the new interface names.
+	// Add the new regions.
 	while(iss >> token) {
 	  if(token == std::string("subtract"))
 	    break;
+	  assert(token == "{");
+	  iss >> token;
 	  assert(std::stoi(token) > maxIndex);
-	  add.emplace_back(token);
+	  Region r;
+	  r.interfaceName = token; // Simulation index
+	  iss >> token;
+	  r.ylo = token;
+	  iss >> token;
+	  r.yhi = token;
+	  iss >> token;
+	  assert(token == "}");
+	  add.emplace_back(r);
 	  maxIndex++;
 	  change = true;
 	}
@@ -392,7 +460,12 @@ namespace cfdsim {
 
       while(iss >> token) {
 	// Collect the indices of the MD simulations that are no longer needed.
-	remove.emplace_back(token);
+	Region r;
+	r.interfaceName = token; // Simulation index
+	iss >> token;
+	r.ylo = token;
+	iss >> token;
+	remove.emplace_back(r);
 	// Do not change max index as indices are never reused.
 	change = true;
       }

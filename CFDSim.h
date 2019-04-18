@@ -6,18 +6,26 @@
 #include <string>
 
 namespace cfdsim {
+  struct Region {
+    std::string interfaceName;
+    std::string ylo;
+    std::string yhi;
+  };
+
   class CFDSim {
     int iters;
     int startTime;
     std::set<std::string> inVars;
     std::set<std::string> outVars;
-    std::set<std::string> firstTimeIndices;
+    std::set<Region> firstTimeRegions;
+    std::vector<Region> regions;
+    std::vector<Region> updatedRegions;
     std::vector<std::string> interfaceNames;
-    std::vector<std::string> updatedInterfaceNames;
+    //std::vector<std::string> updatedInterfaceNames;
     std::string cfdFileName;
     int maxIndex;
-    std::vector<std::string> add;
-    std::vector<std::string> remove;
+    std::vector<Region> add;
+    std::vector<Region> remove;
 
   public:
     CFDSim(char*);
@@ -28,9 +36,9 @@ namespace cfdsim {
 
     void writeCmdFile(std::vector<int>, std::string);
 
-    void createInitialMDFile(std::string, std::string);
+    void createInitialMDFile(Region, std::string);
 
-    void createRestartedMDFile(std::string, std::string);
+    void createRestartedMDFile(Region, std::string);
 
     bool changeMDs(int t);
 

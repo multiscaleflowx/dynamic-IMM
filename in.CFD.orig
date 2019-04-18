@@ -2,6 +2,6 @@ maxNumberOfIterations 500
 startAtIteration 1
 push force
 fetch mass_flow_rate
-firstTimeIndices
-indices
+firstTimeRegions
+regions
 maxIndex 0

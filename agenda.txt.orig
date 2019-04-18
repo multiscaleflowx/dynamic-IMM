@@ -1,14 +1,14 @@
 continue
 continue
-add 1 2
+add { 1 9 10 } { 2 9 10 }
 continue
 continue
-add 3 4
+add { 3 9 10 } { 4 9 10 }
 continue
-subtract 2
+subtract { 2 9 10 }
 continue
-add 5 subtract 4
+add { 5 9 10 } subtract { 4 9 10 }
 continue
 continue
 continue
-subtract 1 3 5
+subtract { 1 9 10 } { 3 9 10 } { 5 9 10 }
