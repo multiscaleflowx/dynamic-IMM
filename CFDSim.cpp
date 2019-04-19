@@ -232,6 +232,7 @@ namespace cfdsim {
 
       // Remove the interface names that are no longer needed.
       for(auto r : remove) {
+	std::cout << "changeMDs: removing " << r << std::endl;
 	auto it = std::find(updatedRegions.begin(), updatedRegions.end(), r);
 	updatedRegions.erase(it);
       }
@@ -460,12 +461,18 @@ namespace cfdsim {
 
       while(iss >> token) {
 	// Collect the indices of the MD simulations that are no longer needed.
+	assert(token == "{");
+	iss >> token;
 	Region r;
 	r.interfaceName = token; // Simulation index
 	iss >> token;
 	r.ylo = token;
 	iss >> token;
+	r.yhi = token;
+	iss >> token;
+	assert(token == "}");
 	remove.emplace_back(r);
+	std::cout << "changesRequired: " << r << " has been added to 'remove'." <<std::endl;
 	// Do not change max index as indices are never reused.
 	change = true;
       }
