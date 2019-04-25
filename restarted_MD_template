@@ -59,13 +59,12 @@ thermo		500
 thermo_modify   temp mobile
 
 variable shutdown1 internal 0
-variable shutdown2 equal v_shutdown1
 
 fix		cfd all mui/connect md$i $i
 fix		fetchforce all mui/fetch_param cfd $i force force EVERY 10
 fix		push_mass_flow all mui/push cfd $i PARAM mass_flow_x mass_flow_x EVERY 10
 fix		terminate all mui/shutdown EVERY 10
-fix		halt all halt 1 v_shutdown2 > 0 error soft
+fix		halt all halt 1 v_shutdown1 > 0 error soft
 
 reset_timestep  $t
 run		500
