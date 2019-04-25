@@ -21,7 +21,6 @@ namespace cfdsim {
     std::vector<Region> regions;
     std::vector<Region> updatedRegions;
     std::vector<std::string> interfaceNames;
-    //std::vector<std::string> updatedInterfaceNames;
     std::string cfdFileName;
     int maxIndex;
     std::vector<Region> add;
