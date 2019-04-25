@@ -162,7 +162,7 @@ namespace cfdsim {
     int i = 0;
     for(auto r : updatedRegions) {
       int p = nodeDistribution[i] * 24;
-      outfile << " :  -n " << p << " lmp_xc30 -in in.MD" << r.interfaceName;
+      outfile << " :  -n " << p << " mui-lmp -in in.MD" << r.interfaceName;
       i++;
     }
     outfile << " > output" << t << std::endl;

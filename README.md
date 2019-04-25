@@ -1,7 +1,7 @@
 AS yet, no real CFD program (such as OpenFOAM) is used. Instead there is a program which exchanges values with LAMMPS simulations and which decides when to change the number of simulations. These decisions are read from a file 'agenda'txt' at run time. This program is encoded in the files CFDSim.cpp and CFDSim.h.
 
 To run this example (on ARCHER)
-1) compile LAMMPS (from the mui-sequence branch) to produce an executable called lmp_xc30.
+1) compile LAMMPS (from the mui-sequence branch) to produce an executable called mui-lmp.
 2) Compile CFDSim.cpp to produce an executable called pseudoOpenfoam.
 3) Create a directory in your work file system containing
     CP
@@ -14,7 +14,7 @@ To run this example (on ARCHER)
     submit2.pbs
     submit3.pbs
     pseudoOpenfoam
-    lmp_xc30
+    mui-lmp
 4) Run the commands
     source CP
     qsub -q short submit1.pbs
@@ -55,8 +55,6 @@ mkdir build
 cd build
 cmake -DCMAKE_CXX_COMPILER=CC -DBUILD_MPI=ON -DBUILD_LIB=ON -DMUI_INCLUDE_DIR=../../test/MUI -DPKG_USER-MUI=ON ../cmake
 make -j 8
-mv mui-lmp to lmp_xc30
-TODO: change the code in this (dynamic-imm) repository so that it expects the LAMMPS executable to be called mui-lmp rather than lmp_xc30.
 
 Compiling CFDSim.cpp
 --------------------
