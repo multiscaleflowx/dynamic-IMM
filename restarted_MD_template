@@ -58,6 +58,9 @@ timestep	0.003
 thermo		500
 thermo_modify   temp mobile
 
+# Equilibration
+run             150
+
 variable shutdown1 internal 0
 
 fix		cfd all mui/connect md$i $i
