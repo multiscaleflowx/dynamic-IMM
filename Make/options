@@ -1,0 +1,6 @@
+sinclude $(GENERAL_RULES)/MUI
+
+EXE_INC = \
+    ${MUI_INC}
+
+EXE_LIBS = \

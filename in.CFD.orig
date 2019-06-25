@@ -1,7 +1,5 @@
-maxNumberOfIterations 500
 startAtIteration 1
 push force
-fetch mass_flow_rate
-firstTimeRegions
+fetch mass_flow_x
 regions
 maxIndex 0

@@ -1,0 +1,6 @@
+Channel.C
+Region.C
+CFDSim.C
+imm.C
+
+EXE = $(FOAM_APPBIN)/cfdSim

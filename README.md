@@ -1,62 +1,40 @@
-AS yet, no real CFD program (such as OpenFOAM) is used. Instead there is a program which exchanges values with LAMMPS simulations and which decides when to change the number of simulations. These decisions are read from a file 'agenda'txt' at run time. This program is encoded in the files CFDSim.cpp and CFDSim.h.
+In this software a steady state flow is modelled.
 
-To run this example (on ARCHER)
-1) compile LAMMPS (from the mui-sequence branch) to produce an executable called mui-lmp.
-2) Compile CFDSim.cpp to produce an executable called pseudoOpenfoam.
-3) Create a directory in your work file system containing
-    CP
-    agenda.txt.orig
-    cmd.orig
-    in.CFD.orig
-    initial_MD_template
-    restarted_MD_template
-    submit1.pbs
-    submit2.pbs
-    submit3.pbs
-    pseudoOpenfoam
-    mui-lmp
-4) Run the commands
-    source CP
-    qsub -q short submit1.pbs
-    mv halt cmd
-    qsub -q short submit2.pbs
-    mv halt cmd
-    qsub -q short submit2.pbs
-    mv halt cmd
-    qsub -q short submit3.pbs
-   noticing how files are created and overwritten.
-   In particular notice how agenda.txt shrinks and the in.MD* files change.
+In brief, the software works as follows. There is a CFD component and two or more MD components that work together to generate a solution. The CFD component maintains an overview of the system which is a channel whilst each MD simulation models part of the channel.
 
+In more detail, the CFD component of the simulator sends a body force to each of the MD simulations. (In the first instance the same body force is sent to each MD simulation.) After a number of time steps each MD simulation passes an instantaneous mass flow rate to the CFD component. For each of the selected locations in the channel a number of mass flow rates are accumulated and an average is computed. The average flow rates are then used to compute a new body force for each MD simulation (through the use of a linear solver) and process of computation starts again. This is carried out for a number of iterations that is specified at run time.
 
-CP copies agenda.txt.orig to agenda.txt, cmd.orig to cmd and in.CFD.orig to in.CFD. agenda.txt, cmd and in.CFD are updated by the sequence of command given in (4) above.
+The OpenFOAM code requires a directory called 'channel' to exist in the directory in which the simulation is run. In this directory there must be two executables:
+1) the OpenFOAM executable cfdSim
+2) the LAMMPS executable mui-lmp.
 
-initial_MD_template and restarted_MD_template are templates for LAMMPS scripts used to either initiate a LAMMPS run or restart one. The names of the files created have the form in.MD<integer>.
+The simulation is controlled by a number of files. The names of the files are given relative to the directory in which the simulation is run.
 
-Apart from the name of the job created, the submit*.pbs files differ only in the number of nodes that they request.
+channel/macrodict sets the values of the constants
+length
+hEnd
+hNeck
+rho
+F
+nSolverCalls
+numberOfSamplesToAverageOver
 
+channel/microDict sets the values of the constants
+molMass
+lengthOfRegion
+widthOfRegion
+microTimeStep
+numberOfEquilibrationSteps
+numberOfStepsBetweenSamples
 
-Compiling the Software on ARCHER
---------------------------------
+in.CFD set the values of
+startAtIteration
+push
+fetch
+regions
+maxIndex
 
-git clone https://github.com/MxUI/MUI.git
+The code simulates a channel the height (in the y direction) of which varies with the streamwise location (x direction). The channel is periodic in the z direction. The shape of the channel can be changed by editing channel.C. The default shape is that of a channel that shrinks linearly in height until it reaches its minimum at the mid point and then expands to its original height. The precise dimensions are controlled by setting the values of 'length', 'hEnd' and 'hNeck'.
 
-Compiling LAMMPS
-----------------
+'rho' is the macroscopic density of the fluid whilst 'F' is an externally applied body force.
 
-GIT_SSL_NO_VERIFY=true git clone https://git.ecdf.ed.ac.uk/multiscale/lammps.git
-
-module swap PrgEnv-cray PrgEnv-gnu
-module load fftw/3.3.4.5
-module load cmake
-
-cd lammps
-git checkout mui-sequence
-mkdir build
-cd build
-cmake -DCMAKE_CXX_COMPILER=CC -DBUILD_MPI=ON -DBUILD_LIB=ON -DMUI_INCLUDE_DIR=../../test/MUI -DPKG_USER-MUI=ON ../cmake
-make -j 8
-
-Compiling CFDSim.cpp
---------------------
-
-CC -g -O3 -std=c++11 -I<path_to_mui_headers> CFDSim.cpp -o pseudoOpenfoam
