@@ -17,7 +17,7 @@ FoamFile
 molMass                       6.6335e-26;
 
 lengthOfRegion                80e-10;
-widthOfRegion                 40e-10;
+widthOfRegion                 54.4e-10;
 
 microTimeStep                 0.002;
 

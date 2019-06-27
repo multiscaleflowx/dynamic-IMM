@@ -14,9 +14,9 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-length          80e-10;
-hEnd            12e-10;
-hNeck           8e-10;
+length          680e-10;
+hEnd            34e-10;
+hNeck           20.4e-10;
 
 rho             1430;
 
