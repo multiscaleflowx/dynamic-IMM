@@ -77,11 +77,19 @@ namespace cfdsim {
     std::string keyWord, line, s;
 
     infs >> keyWord;
-    assert(keyWord == "startAtIteration");
+    if(keyWord != "startAtIteration") {
+      std::cout << "ERROR: '" << keyWord << "' found where 'startAtIteration' was expected." << std::endl;
+      // Make sure program terminates even in MPMD mode.
+      MPI_Abort(MPI_COMM_WORLD, 999);
+    }
     infs >> startTime;
 
     infs >> keyWord;
-    assert(keyWord == "push");
+    if(keyWord != "push") {
+      std::cout << "ERROR: '" << keyWord << "' found where 'push' was expected." << std::endl;
+      // Make sure program terminates even in MPMD mode.
+      MPI_Abort(MPI_COMM_WORLD, 999);
+    }
     getline(infs, line);
     std::istringstream str_stream2(line);
     while(str_stream2 >> s) {
@@ -89,7 +97,11 @@ namespace cfdsim {
     }
 
     infs >> keyWord;
-    assert(keyWord == "fetch");
+    if(keyWord != "fetch") {
+      std::cout << "ERROR: '" << keyWord << "' found where 'fetch' was expected." << std::endl;
+      // Make sure program terminates even in MPMD mode.
+      MPI_Abort(MPI_COMM_WORLD, 999);
+    }
     getline(infs, line);
     std::istringstream str_stream3(line);
     while(str_stream3 >> s) {
@@ -100,7 +112,11 @@ namespace cfdsim {
     // Once an MD simulation is required OpenFOAM will be restarted with interfaces
     // to the required MD simulations.
     infs >> keyWord;
-    assert(keyWord == "regions");
+    if(keyWord != "regions") {
+      std::cout << "ERROR: '" << keyWord << "' found where 'regions' was expected." << std::endl;
+      // Make sure program terminates even in MPMD mode.
+      MPI_Abort(MPI_COMM_WORLD, 999);
+    }
     getline(infs, line);
     std::istringstream str_stream1(line);
     Region r;
@@ -110,10 +126,19 @@ namespace cfdsim {
     }
 
     infs >> keyWord;
-    assert(keyWord == "maxIndex");
+    if(keyWord != "maxIndex") {
+      std::cout << "ERROR: '" << keyWord << "' found where 'maxIndex' was expected." << std::endl;
+      // Make sure program terminates even in MPMD mode.
+      MPI_Abort(MPI_COMM_WORLD, 999);
+    }
     infs >> maxIndex;
-    if(interfaceNames.size() == 0)
-      assert(maxIndex == 0);
+    if(interfaceNames.size() == 0) {
+      if(maxIndex != 0) {
+	std::cout << "ERROR: maxIndex '" << maxIndex << "' found where '0' was expected." << std::endl;
+	// Make sure program terminates even in MPMD mode.
+	MPI_Abort(MPI_COMM_WORLD, 999);
+      }
+    }
 
     infs.close();
     std::cout << "Leaving readConfigFile" << std::endl;
@@ -196,7 +221,9 @@ namespace cfdsim {
     std::string line;
     double h = channel.heightAt(r.sNorm);
     int32_t N = round(rhoN_*lengthOfRegion*widthOfRegion*h/molMass);
-    h = h *10e10; // Convert from metres to Angstroms.
+    h = h * 1.0e10; // Convert from metres to Angstroms.
+    double length = lengthOfRegion * 1.0e10;
+    double width = widthOfRegion * 1.0e10;
     std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << std::endl;
     std::ostringstream h_strs;
     h_strs << h;
@@ -204,6 +231,12 @@ namespace cfdsim {
     std::ostringstream N_strs;
     N_strs << N;
     std::string N_str = N_strs.str();
+    std::ostringstream l_strs;
+    l_strs <<length;
+    std::string l_str = l_strs.str();
+    std::ostringstream w_strs;
+    w_strs << width;
+    std::string w_str = w_strs.str();
     std::cout << "Initial MD file: " << r << ", h_str = " << h_str << ", N_str = " << N_str << std::endl;
     while(getline(infs, line)) {
       size_t index;
@@ -233,6 +266,12 @@ namespace cfdsim {
       }
       while((index = line.find("@t")) != std::string::npos) {
         line.replace(index, 2, startTime);
+      }
+       while((index = line.find("@l")) != std::string::npos) {
+        line.replace(index, 2, l_str);
+      }
+       while((index = line.find("@w")) != std::string::npos) {
+        line.replace(index, 2, w_str);
       }
       outfs << line << std::endl;
     }
@@ -252,7 +291,9 @@ namespace cfdsim {
     std::string line;
     double h = channel.heightAt(r.sNorm);
     int32_t N = round(rhoN_*lengthOfRegion*widthOfRegion*h/molMass);
-    h = h *10e10; // Convert from metres to Angstroms.
+    h = h * 1.0e10; // Convert from metres to Angstroms.
+    double length = lengthOfRegion * 1.0e10;
+    double width = widthOfRegion * 1.0e10;
     std::cout << "Restarted MD file: " << r << ", h = " << h << ", N = " << N << std::endl;
     std::ostringstream h_strs;
     h_strs << h;
@@ -260,7 +301,13 @@ namespace cfdsim {
     std::ostringstream N_strs;
     N_strs << N;
     std::string N_str = N_strs.str();
-    std::cout << "Initial MD file: " << r << ", h_str = " << h_str << ", N_str = " << N_str << std::endl;
+    std::ostringstream l_strs;
+    l_strs <<length;
+    std::string l_str = l_strs.str();
+    std::ostringstream w_strs;
+    w_strs << width;
+    std::string w_str = w_strs.str();
+    std::cout << "Restarted MD file: " << r << ", h_str = " << h_str << ", N_str = " << N_str << std::endl;
     while(getline(infs, line)) {
       size_t index;
       while((index = line.find("@f")) != std::string::npos) {
@@ -289,6 +336,12 @@ namespace cfdsim {
       }
       while((index = line.find("@t")) != std::string::npos) {
         line.replace(index, 2, startTime);
+      }
+       while((index = line.find("@l")) != std::string::npos) {
+        line.replace(index, 2, l_str);
+      }
+       while((index = line.find("@w")) != std::string::npos) {
+        line.replace(index, 2, w_str);
       }
       outfs << line << std::endl;
     }
@@ -711,14 +764,14 @@ namespace cfdsim {
     }
     std::cout << "Outputs set before run." << std::endl;
 
+    bool halt = false;
+    bool terminate = false;
     int64_t timestep = startTime;
     std::cout << "run: nMeasurement = " << nMeasurement << std::endl;
     for(int iter_ = 0; iter_ < nIter_; iter_++) {
-      bool halt = false;
-      bool terminate = false;
       int32_t sampleCount = 0;
 
-      for(int i = 0; i < nEquilibration; i++) {
+      for(int i = 0; (i < nEquilibration) && (!terminate); i++) {
 	std::cout << "run:equib: timestep = " << timestep << std::endl;
 
 	if((timestep % NEVERY) == 0) {
@@ -735,40 +788,42 @@ namespace cfdsim {
 	timestep++;
       }
 
-      for(int i = 0; i < nMeasurement; i++) {
-	std::cout << "run:measurement: timestep = " << timestep << std::endl;
+      for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
+	std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << std::endl;
-	  int oldNumberOfMDs = interfaceNames.size();
-	  if(changeMDs(timestep, iter_)) {
-	    int numberOfMDs = updatedRegions.size();
-	    std::cout << "timestep = " << timestep << ": numberOfMDs = " << numberOfMDs << std::endl;
-	    std::cout << "timestep = " << timestep << ": maxIndex = " << maxIndex << std::endl;
-	    std::vector<int> nodeDistribution(numberOfMDs);
-	    if((numberOfMDs == 0 ) && (oldNumberOfMDs > 0)) {
-	      std::cout << "No MDs left, so must halt." << std::endl;
-	      halt = true;
-	    }
-	    else if(calculateNodeDistribution(nMDNodes, nodeDistribution)) {
-	      std::cout << "Change of configuration required for MDs, so must terminate." << std::endl;
-	    }
-	    else { // There is no possible node distribution.
-	      std::cout << "Too few nodes for new MDs, so must terminate." << std::endl;
-	      halt = true;
-	    }
+	  if(iter_ == (nIter_ - 1)) {
+	    int oldNumberOfMDs = interfaceNames.size();
+	    if(changeMDs(timestep, iter_)) {
+	      int numberOfMDs = updatedRegions.size();
+	      std::cout << "timestep = " << timestep << ": numberOfMDs = " << numberOfMDs << std::endl;
+	      std::cout << "timestep = " << timestep << ": maxIndex = " << maxIndex << std::endl;
+	      std::vector<int> nodeDistribution(numberOfMDs);
+	      if((numberOfMDs == 0 ) && (oldNumberOfMDs > 0)) {
+		std::cout << "No MDs left, so must halt." << std::endl;
+		halt = true;
+	      }
+	      else if(calculateNodeDistribution(nMDNodes, nodeDistribution)) {
+		std::cout << "Change of configuration required for MDs, so must terminate." << std::endl;
+	      }
+	      else { // There is no possible node distribution.
+		std::cout << "Too few nodes for new MDs, so must terminate." << std::endl;
+		halt = true;
+	      }
 
-	    writeCmdFile(nodeDistribution, std::to_string(timestep));
+	      writeCmdFile(nodeDistribution, std::to_string(timestep));
 
-	    if(halt) {
-	      std::system("mv cmd halt");
+	      if(halt) {
+		std::system("mv cmd halt");
+	      }
+	      terminate = true;
 	    }
-	    terminate = true;
 	  }
 
 	  receiveData(interfaces, timestep);
 
           sampleCount++;
-	  std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", timestep = " << timestep << std::endl;
+	  std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
           if(sampleCount == nSamples) {
 	    std::cout << "AVERAGE" << std::endl;
 	    calculateAverages();
@@ -782,7 +837,7 @@ namespace cfdsim {
 	    }
 	    */
 	    clearAccumulators();
-	    std::cout << "SOLVE, timestep = " << timestep << std::endl;
+	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	    //TODO: reinstate this.
 	    //solve(iter_, oldNumberOfMDs);
 	    sampleCount = 0;
@@ -805,9 +860,9 @@ namespace cfdsim {
 	  std::cout << "MPI_Allreduce: terminate at timestep " << timestep << " = " << max_val << ", halt = " << halt << std::endl;
 	}
         timestep++;
-	if(terminate) {
-	  break;
-	}
+	//if(terminate) {
+	//  break;
+	//}
       }
 
       /*
@@ -846,68 +901,77 @@ namespace cfdsim {
     std::ofstream agendaOutFile("new_agenda.txt");
     bool change = false;
 
-    // Get the first line of the file agenda.txt.
-    std::string line;
-    std::getline(agendaInFile, line);
-    std::cout << "AGENDA: " << line << std::endl;
-    std::istringstream iss(line);
+    if(continue_counter <= 0) {
+      // Get the first line of the file agenda.txt.
+      std::string line;
+      std::getline(agendaInFile, line);
+      std::cout << "AGENDA: " << line << std::endl;
+      std::istringstream iss(line);
 
-    std::string token;
-    iss >> token;
-    if(token != std::string("continue")) {
+      std::string token;
+      iss >> token;
+      if(token != std::string("continue")) {
 
-      // Collect the descriptions of the new MD simulations to be created.
-      if(token == std::string("add")) {
-	// Add the new regions.
+	// Collect the descriptions of the new MD simulations to be created.
+	if(token == std::string("add")) {
+	  // Add the new regions.
+	  while(iss >> token) {
+	    if(token == std::string("subtract"))
+	      break;
+	    assert(token == "{");
+	    iss >> token;
+	    assert(std::stoi(token) > maxIndex);
+	    Region r;
+	    r.interfaceName = token; // Simulation index
+	    iss >> token;
+	    r.sNorm = stod(token);
+	    iss >> token;
+	    assert(token == "}");
+	    add.emplace_back(r);
+	    maxIndex++;
+	    change = true;
+	  }
+	}
+
 	while(iss >> token) {
-	  if(token == std::string("subtract"))
-	    break;
+	  // Collect the indices of the MD simulations that are no longer needed.
 	  assert(token == "{");
 	  iss >> token;
-	  assert(std::stoi(token) > maxIndex);
 	  Region r;
 	  r.interfaceName = token; // Simulation index
 	  iss >> token;
 	  r.sNorm = stod(token);
 	  iss >> token;
 	  assert(token == "}");
-	  add.emplace_back(r);
-	  maxIndex++;
+	  remove.emplace_back(r);
+	  // Do not change max index as indices are never reused.
 	  change = true;
 	}
+
       }
 
-      while(iss >> token) {
-	// Collect the indices of the MD simulations that are no longer needed.
-	assert(token == "{");
-	iss >> token;
-	Region r;
-	r.interfaceName = token; // Simulation index
-	iss >> token;
-	r.sNorm = stod(token);
-	iss >> token;
-	assert(token == "}");
-	remove.emplace_back(r);
-	// Do not change max index as indices are never reused.
-	change = true;
+      // Read how many times the program should continue with the current number of MD sims.
+      iss >> continue_counter;
+      std::cout << "continue_counter = " << continue_counter << std::endl;
+
+      // Copy all but the first line of the file agenda.txt
+      // to new_agenda.txt.
+      while(std::getline(agendaInFile, line)) {
+	agendaOutFile << line << std::endl;
       }
+      std::cout << "Closing agenda.txt" << std::endl;
+      agendaInFile.close();
+      std::cout << "Closing new_agenda.txt" << std::endl;
+      agendaOutFile.close();
 
+      // Update agenda.txt.
+      std::cout << "Moving new_agenda.txt" << std::endl;
+      std::system("mv new_agenda.txt agenda.txt");
     }
-  
-    // Copy all but the first line of the file agenda.txt
-    // to new_agenda.txt.
-    while(std::getline(agendaInFile, line)) {
-      agendaOutFile << line << std::endl;
-    }
-    std::cout << "Closing agenda.txt" << std::endl;
-    agendaInFile.close();
-    std::cout << "Closing new_agenda.txt" << std::endl;
-    agendaOutFile.close();
 
-    // Update agenda.txt.
-    std::cout << "Moving new_agenda.txt" << std::endl;
-    std::system("mv new_agenda.txt agenda.txt");
- 
+    continue_counter--;
+    std::cout << "After decrement continue_counter = " << continue_counter << std::endl;
+
     std::cout << "Leaving changesRequired: change = " << change << std::endl;
     return change;
   }
