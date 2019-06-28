@@ -18,13 +18,13 @@ variable	liq_upper_lim equal ${chnl_Y_coord}-1
 # create geometry
 
 lattice		fcc 4.0	
-region		domain block 0 20 0 ${dom_upper_limt} 0 10
+region		domain block 0 @l 0 ${dom_upper_limt} 0 @w
 
-region		box1 block 0 20 3 ${liq_upper_lim} 0 10
+region		box1 block 0 @l 3 ${liq_upper_lim} 0 @w
 
-region		box2 block 0 20 0 ${num_lat_wall_Y} 0 10  
+region		box2 block 0 @l 0 ${num_lat_wall_Y} 0 @w
 
-region		box3 block 0 20 ${chnl_Y_coord} ${dom_upper_limt} 0 10  
+region		box3 block 0 @l ${chnl_Y_coord} ${dom_upper_limt} 0 @w
 
 mass		1 1.0
 mass		2 1.0
