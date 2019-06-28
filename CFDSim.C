@@ -767,6 +767,8 @@ namespace cfdsim {
     bool halt = false;
     bool terminate = false;
     int64_t timestep = startTime;
+    int numberOfMDs = interfaceNames.size();
+    initialise(numberOfMDs);
     std::cout << "run: nMeasurement = " << nMeasurement << std::endl;
     for(int iter_ = 0; iter_ < nIter_; iter_++) {
       int32_t sampleCount = 0;
@@ -793,13 +795,12 @@ namespace cfdsim {
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << std::endl;
 	  if(iter_ == (nIter_ - 1)) {
-	    int oldNumberOfMDs = interfaceNames.size();
-	    if(changeMDs(timestep, iter_)) {
-	      int numberOfMDs = updatedRegions.size();
-	      std::cout << "timestep = " << timestep << ": numberOfMDs = " << numberOfMDs << std::endl;
+	      if(changeMDs(timestep, iter_)) {
+	      int newNumberOfMDs = updatedRegions.size();
+	      std::cout << "timestep = " << timestep << ": newNumberOfMDs = " << newNumberOfMDs << std::endl;
 	      std::cout << "timestep = " << timestep << ": maxIndex = " << maxIndex << std::endl;
-	      std::vector<int> nodeDistribution(numberOfMDs);
-	      if((numberOfMDs == 0 ) && (oldNumberOfMDs > 0)) {
+	      std::vector<int> nodeDistribution(newNumberOfMDs);
+	      if((newNumberOfMDs == 0 ) && (numberOfMDs > 0)) {
 		std::cout << "No MDs left, so must halt." << std::endl;
 		halt = true;
 	      }
@@ -827,28 +828,35 @@ namespace cfdsim {
           if(sampleCount == nSamples) {
 	    std::cout << "AVERAGE" << std::endl;
 	    calculateAverages();
-	    // TODO: reinstate this.
 	    // This relies on the regions being correctly ordered.
-	    /*
 	    sort(regions.begin(), regions.end());
 	    int32_t j = 0;
 	    for(Region r : regions) {
+	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
 	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")];
+	      std::cout << "mDot_[" << j << "] = " << mDot_[j] << std::endl;
 	    }
-	    */
 	    clearAccumulators();
 	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
-	    //TODO: reinstate this.
-	    //solve(iter_, oldNumberOfMDs);
+	    solve(iter_, numberOfMDs);
 	    sampleCount = 0;
           }
 
-	  //TODO: replace this!
+	  int32_t posn = 0;
 	  std::cout << "Set outputs" << std::endl;
 	  for(std::string ifn : interfaceNames) {
 	    for(std::string v : outVars) {
-	      outVarValues[ifn][v] = F_;
+	      if(v == std::string("force")) {
+		std::cout << "f_[" << posn << "] = " << f_[posn] << " will be replaced by 4.87e-13." << std::endl;
+	        //outVarValues[ifn][v] = f_[posn];
+	        outVarValues[ifn][v] = 4.87e-13;
+	      }
+	      else {
+		std::cout << "Unexpected variable '" << v << "'." << std::endl;
+		outVarValues[ifn][v] = 0.0;
+	      }
 	    }
+	    posn++;
 	  }
 	  std::cout << "Outputs set" << std::endl;
 
