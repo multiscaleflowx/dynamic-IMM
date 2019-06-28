@@ -20,7 +20,7 @@ hNeck           20.4e-10;
 
 rho             1430;
 
-F               0.4e-12;
+F               0.487e-12;
 
 nSolverCalls    3;
 numberOfSamplesToAverageOver  1000;
