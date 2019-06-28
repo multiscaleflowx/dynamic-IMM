@@ -5,6 +5,9 @@
 #PBS -l walltime=00:01:00
 #PBS -A ecse1320
 
+export OPENFOAM_DIR=/work/ecse1320/ecse1320/shared
+source $OPENFOAM_DIR/OpenFOAM-6/etc/bashrc
+
 cd $PBS_O_WORKDIR
 
 until [ -f ./halt ]; do
