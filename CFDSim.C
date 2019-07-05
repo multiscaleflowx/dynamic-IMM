@@ -791,7 +791,7 @@ namespace cfdsim {
       }
 
       for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
-	std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
+	//std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << std::endl;
 	  if(iter_ == (nIter_ - 1)) {
@@ -824,17 +824,18 @@ namespace cfdsim {
 	  receiveData(interfaces, timestep);
 
           sampleCount++;
-	  std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
+	  //std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
           if(sampleCount == nSamples) {
-	    std::cout << "AVERAGE" << std::endl;
+	    //std::cout << "AVERAGE" << std::endl;
 	    calculateAverages();
 	    // This relies on the regions being correctly ordered.
 	    sort(regions.begin(), regions.end());
 	    int32_t j = 0;
 	    for(Region r : regions) {
-	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
+	      //std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
 	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")];
 	      std::cout << "mDot_[" << j << "] = " << mDot_[j] << std::endl;
+	      j++;
 	    }
 	    clearAccumulators();
 	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
@@ -843,13 +844,13 @@ namespace cfdsim {
           }
 
 	  int32_t posn = 0;
-	  std::cout << "Set outputs" << std::endl;
+	  //std::cout << "Set outputs" << std::endl;
 	  for(std::string ifn : interfaceNames) {
 	    for(std::string v : outVars) {
 	      if(v == std::string("force")) {
-		std::cout << "f_[" << posn << "] = " << f_[posn] << " will be replaced by 4.87e-13." << std::endl;
-	        //outVarValues[ifn][v] = f_[posn];
-	        outVarValues[ifn][v] = 4.87e-13;
+		//std::cout << "f_[" << posn << "] = " << f_[posn] << " will be replaced by 4.87e-13." << std::endl;
+	        outVarValues[ifn][v] = f_[posn];
+		//outVarValues[ifn][v] = 4.87e-13;
 	      }
 	      else {
 		std::cout << "Unexpected variable '" << v << "'." << std::endl;
@@ -858,14 +859,14 @@ namespace cfdsim {
 	    }
 	    posn++;
 	  }
-	  std::cout << "Outputs set" << std::endl;
+	  //std::cout << "Outputs set" << std::endl;
 
           sendData(interfaces, timestep);
 
 	  double val = double(terminate);
 	  double max_val; // To keep MPI_Allreduce happy. It will be set to the value of val.
 	  MPI_Allreduce(&val, &max_val, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-	  std::cout << "MPI_Allreduce: terminate at timestep " << timestep << " = " << max_val << ", halt = " << halt << std::endl;
+	  //std::cout << "MPI_Allreduce: terminate at timestep " << timestep << " = " << max_val << ", halt = " << halt << std::endl;
 	}
         timestep++;
 	//if(terminate) {
@@ -978,7 +979,7 @@ namespace cfdsim {
     }
 
     continue_counter--;
-    std::cout << "After decrement continue_counter = " << continue_counter << std::endl;
+    //std::cout << "After decrement continue_counter = " << continue_counter << std::endl;
 
     std::cout << "Leaving changesRequired: change = " << change << std::endl;
     return change;
