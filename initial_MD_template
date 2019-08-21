@@ -5,65 +5,66 @@ dimension	3
 boundary	p p p
 
 atom_style	atomic
-neighbor	0.3 bin
-neigh_modify	delay 5
+neighbor	2.0 bin
+neigh_modify	every 1 delay 5 check yes
 
-variable	chnl_ht equal @h
-variable	num_lat_wall_Y equal 2
-variable	chnl_Y_coord equal ${chnl_ht}+${num_lat_wall_Y}
-variable	dom_upper_limt equal ${chnl_Y_coord}+${num_lat_wall_Y}
-variable	liq_upper_lim equal ${chnl_Y_coord}-1
+variable	chnl_ht equal @h/2.15
+variable num_lat_wall_Y equal 3
+variable chnl_Y_coord equal ${chnl_ht}+${num_lat_wall_Y}
+variable dom_upper_limt equal ${chnl_Y_coord}+${num_lat_wall_Y}+1
+variable liq_upper_lim equal ${chnl_Y_coord}-1
+variable liq_lower_lim equal ${num_lat_wall_Y}+1
 
 # create geometry
 
-lattice		fcc 4.0	
+lattice		sc 2.15	
 region		domain block 0 @l 0 ${dom_upper_limt} 0 @w
 create_box	3 domain
 
-region		box1 block 0 @l 3 ${liq_upper_lim} 0 @w
+region		box1 block 0 @l ${liq_lower_lim} ${liq_upper_lim} 0 @w
 create_atoms	1 random @N 123 box1
 
-region		box2 block 0 @l 0 ${num_lat_wall_Y} 0 @w
+region		box2 block 0 @l 0 ${num_lat_wall_Y} 0 @w  
 create_atoms	2 region box2
 
-region		box3 block 0 @l ${chnl_Y_coord} ${dom_upper_limt} 0 @w
+region		box3 block 0 @l ${chnl_Y_coord} ${dom_upper_limt} 0 @w  
 create_atoms	3 region box3
 
-mass		1 1.0
-mass		2 1.0
-mass		3 1.0
+mass		1 39.948
+mass		2 39.948
+mass		3 39.948
 
-# LJ potentials
+# potentials
 
-pair_style	lj/cut 1.0
-pair_coeff	* * 1.0 1.0 1.0
+pair_style      lj/cut 13.6
+pair_coeff	* * 0.2385 3.4
+
 
 # define groups
 
-region		1 block INF INF INF ${num_lat_wall_Y} INF INF
-group		lower region 1
-region		2 block INF INF ${chnl_Y_coord} INF INF INF
-group		upper region 2
-group		boundary union lower upper
-group		liquid subtract all boundary
+group           liquid type 1
+group           lower type 2
+group           upper type 3
+group	        boundary union lower upper
+# minimization
 
-set		group lower type 2
-set		group upper type 3
+fix		1 lower setforce 0.0 0.0 0.0
+fix		2 upper setforce 0.0 0.0 0.0
+
+minimize        0.0 1.0e-8 1000 100000
 
 # temperature settings
 
-compute	        mobile liquid temp
-velocity	liquid create 1.0 100 temp mobile
-fix		1 all nve
-fix		2 liquid temp/rescale 200 1.0 2.0 0.02 1.0
-fix_modify	2 temp mobile
+# velocity	liquid create 1.0 100 temp mobile
+fix			3 liquid temp/berendsen 292.8 292.8 100.0
+fix			4 liquid nve
+compute tempMobile liquid temp/com
+fix_modify 3 temp tempMobile
 
 # Poiseuille flow
-variable        force internal 0.0
 
+variable        force internal 0.0
 velocity	boundary set 0.0 0.0 0.0
-fix		4 lower setforce 0.0 0.0 0.0
-fix		5 upper setforce 0.0 0.0 0.0
 fix		6 liquid addforce v_force 0.0 0.0
 
 # Compute total momentum
@@ -74,8 +75,8 @@ variable        mass_flow_x equal "c_total_mom[1]/lx"
 # Run
 
 timestep	0.002
-thermo		500
-thermo_modify   temp mobile
+thermo		5
+#thermo_modify   temp mobile
 
 variable        shutdown internal 0
 variable        communicate internal 1
@@ -91,26 +92,28 @@ reset_timestep  @t
 variable        a loop 0 @niterM1
 label		iterative_solve
 
-print "1: start of iteration $a."
+print "@id: start of iteration $a."
 
 # Equilibration
 
-print "1: trying to set force."
+print "@id: trying to set force."
 
-fix             body_force all setforce v_force 0.0 0.0
+fix             body_force liquid addforce v_force 0.0 0.0
+
+print "@id: v_force is now ${force}."
 
 variable	communicate delete
 variable	communicate internal 0
-print "1: start equilibration run$a."
+print "@id: start equilibration run$a."
 run		@nequib
 variable	communicate delete
 
 # Measurement
-
+dump            1 all custom 1 @id.lammpstrj id type x y z
 variable	communicate delete
 variable	communicate internal 1
-print "1: start measurement run$a."
+print "@id: start measurement run$a."
 run		@nsteps
-
+undump          1
 next		a
 jump		SELF iterative_solve
