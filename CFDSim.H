@@ -25,6 +25,9 @@ using namespace Foam;
 
 namespace cfdsim {
   class CFDSim {
+    double forceConversionFactor = 1.44e10;
+    double massFlowRateConversionFactor = 1.661e-12;
+
     int startTime;
     std::set<std::string> inVars;
     std::set<std::string> outVars;
@@ -41,6 +44,7 @@ namespace cfdsim {
     std::vector<Region> add;
     std::vector<Region> remove;
     Channel channel;
+    std::ofstream ofs;
     int32_t continue_counter = 0;
 
     label nIter_; // Number of iterations.
@@ -105,9 +109,6 @@ namespace cfdsim {
     void solve(label, label);
 
     //void calculateBodyForces(label, label, std::map<std::string, std::map<std::string, double>>);
-
-    void exchangeData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>&,
-		      int);
 
     void receiveData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>&,
 		     int);

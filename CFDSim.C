@@ -2,6 +2,7 @@
 #include <string>
 #include <istream>
 #include <ostream>
+#include <fstream>
 #include <set>          // std::set
 #include <vector>       // std::vector
 
@@ -21,7 +22,10 @@ namespace cfdsim {
     const double hNeck = readScalar(macroDict.lookup("hNeck"));
     channel = Channel(length, hEnd, hNeck);
 
+    ofs.open("solver_output");
+
     F_ = readScalar(macroDict.lookup("F"));
+    std::cout << "Read in: F_ = " << F_ << std::endl;
     rhoN_ = readScalar(macroDict.lookup("rho"));
 
     nIter_= readLabel(macroDict.lookup("nSolverCalls"));
@@ -224,7 +228,7 @@ namespace cfdsim {
     h = h * 1.0e10; // Convert from metres to Angstroms.
     double length = lengthOfRegion * 1.0e10;
     double width = widthOfRegion * 1.0e10;
-    std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << std::endl;
+    std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
     std::ostringstream h_strs;
     h_strs << h;
     std::string h_str = h_strs.str();
@@ -237,7 +241,7 @@ namespace cfdsim {
     std::ostringstream w_strs;
     w_strs << width;
     std::string w_str = w_strs.str();
-    std::cout << "Initial MD file: " << r << ", h_str = " << h_str << ", N_str = " << N_str << std::endl;
+    std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
     while(getline(infs, line)) {
       size_t index;
       while((index = line.find("@f")) != std::string::npos) {
@@ -294,7 +298,7 @@ namespace cfdsim {
     h = h * 1.0e10; // Convert from metres to Angstroms.
     double length = lengthOfRegion * 1.0e10;
     double width = widthOfRegion * 1.0e10;
-    std::cout << "Restarted MD file: " << r << ", h = " << h << ", N = " << N << std::endl;
+    std::cout << "Restarted MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
     std::ostringstream h_strs;
     h_strs << h;
     std::string h_str = h_strs.str();
@@ -307,7 +311,7 @@ namespace cfdsim {
     std::ostringstream w_strs;
     w_strs << width;
     std::string w_str = w_strs.str();
-    std::cout << "Restarted MD file: " << r << ", h_str = " << h_str << ", N_str = " << N_str << std::endl;
+    std::cout << "Restarted MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
     while(getline(infs, line)) {
       size_t index;
       while((index = line.find("@f")) != std::string::npos) {
@@ -370,12 +374,13 @@ namespace cfdsim {
       // Those MDs that existed before this run and are still needed must have
       // restart files created for them.
       for(auto r : updatedRegions) {
-	std::ostringstream strs;
-	strs << F_;
-	std::string F_str = strs.str();
+	double mdForce = forceConversionFactor * F_; // TODO: replace F_ by f-[i].
+	std::ostringstream f_strs;
+	f_strs << mdForce;
+	std::string mdF_str = f_strs.str();
 
 	createRestartedMDFile(r,
-			      F_str,
+			      mdF_str,
 			      std::to_string(nIter_ - 1),
 			      std::to_string(nEquilibration),
 			      std::to_string(nStepsBetweenSamples),
@@ -387,20 +392,23 @@ namespace cfdsim {
       for(auto r : add) {
 	updatedRegions.emplace_back(r);
 
-	std::ostringstream strs;
-	strs << F_;
-	std::string F_str = strs.str();
+	double mdForce = forceConversionFactor * F_;
+	std::cout << "Writing to MD file: F_ = " << F_ << std::endl;
+	std::cout << "Writing to MD file: mdForce = " << mdForce << std::endl;
+	std::ostringstream f_strs;
+	f_strs << mdForce;
+	std::string mdF_str = f_strs.str();
 
 	createInitialMDFile(r,
-			    F_str,
+			    mdF_str,
 			    std::to_string(nIter_ - 1),
 			    std::to_string(nEquilibration),
 			    std::to_string(nStepsBetweenSamples),
 			    std::to_string(nMeasurement),
 			    std::to_string(t));
 
-	std::cout << "Creating force files for new simulations." << std::endl;
-	createMDForceFile(r, F_str, "0");	
+	//std::cout << "Creating force files for new simulations." << std::endl;
+	//createMDForceFile(r, mdF_str, "0");	
       }
 
       writeConfigFile(t);
@@ -485,7 +493,7 @@ namespace cfdsim {
     if(iter_ == 0) {
       Info << nl << "applying initial flow resistance adjustments" << endl;
 
-      for(label i=0; i < nMicro_; i++) {
+      for(label i = 0; i < nMicro_; i++) {
 	if(mDot_[i] != 0.0) {
 	  k_[i] = f_[i]/mDot_[i];
 
@@ -498,7 +506,7 @@ namespace cfdsim {
     else {
       Info << nl << "Calculating k_i's" << nl << endl;
  
-      for(label i=0; i < nMicro_; i++) {
+      for(label i = 0; i < nMicro_; i++) {
 	kIs_[i][iter_][0] = mDot_[i];
 	kIs_[i][iter_][1] = f_[i];
 	kIs_[i][iter_][2] = 0.1*mDot_[i]; //mDotError_[i] //*** need to pass flow rate error
@@ -527,6 +535,7 @@ namespace cfdsim {
 
     // 2. set LU matrix (this is the hardest and trickiest part)
 
+    std::cout << "Creating matrix" << std::endl;
     simpleMatrix<scalar> luMatrix(nMicro_+1, 0.0, 0.0);
 
     // column configuration
@@ -554,7 +563,7 @@ namespace cfdsim {
 
     // flow response equations
 
-    for(label i=0; i < nMicro_; i++) {
+    for(label i = 0; i < nMicro_; i++) {
       c = nMicro_;
 
       luMatrix[r][c]=-rhoN_*k_[i];
@@ -580,11 +589,11 @@ namespace cfdsim {
 
     // 4. set new phi's
 
-    for(label i=0; i < nMicro_; i++) {
+    for(label i = 0; i < nMicro_; i++) {
       phiCoeffs_[i] = M[i];
     }
 
-    for(label i=0; i < nMicro_; i++) {
+    for(label i = 0; i < nMicro_; i++) {
       phi_[i] = phiCoeffs_[0];
 
       for(label j=1; j <= (nMicro_-1)/2; j++) {
@@ -597,7 +606,8 @@ namespace cfdsim {
 
     List<scalar> mDotMacro_(nMicro_,0.0); //predicted Mass Flow Rates
 
-    for(label i=0; i < nMicro_; i++) {
+    std::cout << "Setting new forces" << std::endl;
+    for(label i = 0; i < nMicro_; i++) {
       f_[i] = (F_ + phi_[i]/rhoN_);
 
       if(k_[i] != 0.0) {
@@ -609,13 +619,21 @@ namespace cfdsim {
 
     //iter_++; // important
 
-    Info<< nl << "Statistics" << endl;
-    Info<< nl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
+    Info << nl << "Statistics" << endl;
+    ofs << nl << "Statistics" << endl;
+    Info << nl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
+        << "\t phi_i \t phiCoeffs_i \t"
+        << endl;
+    ofs << nl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
         << "\t phi_i \t phiCoeffs_i \t"
         << endl;
 
-    for(label i=0; i < nMicro_; i++) {
-      Info<< i << "\t" << s_[i] << "\t" << f_[i] << "\t" << mDot_[i]
+    for(label i = 0; i < nMicro_; i++) {
+      Info << i << "\t" << s_[i] << "\t" << f_[i] << "\t" << mDot_[i]
+	  << "\t" << mDotMacro_[i] << "\t" << k_[i] << "\t" << phi_[i]
+	  << "\t" << phiCoeffs_[i]
+	  <<endl;
+      ofs << i << "\t" << s_[i] << "\t" << f_[i] << "\t" << mDot_[i]
 	  << "\t" << mDotMacro_[i] << "\t" << k_[i] << "\t" << phi_[i]
 	  << "\t" << phiCoeffs_[i]
 	  <<endl;
@@ -649,42 +667,6 @@ namespace cfdsim {
     std::cout << "Leaving clearAccumulators" << std::endl;
   }
 
-  void CFDSim::exchangeData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>& interfaces,
-			    int step) {    
-    std::cout << "Entering exchangeData" << std::endl;
-
-    double allowed_lag_time = 2*time_dt;
-    double t = step*time_dt;
-
-    std::cout << "exchangeData: step = " << step << ", t = " << t << std::endl;
-
-    //calculateOutputs(t, outVarValues);
-
-    int i = 0;
-    for(auto& interface : interfaces) {
-      std::string ifn = interfaceNames[i];
-
-      // SEND.
-      for(std::string var : outVars) {
-        std::cout << "CFD out t = " << t << " " << ifn << ' ' << var << ' ' << outVarValues[ifn][var] << std::endl;
-        interface->push(var, outVarValues[ifn][var]);
-      }
-      interface->commit(t);
-
-      // RECEIVE.
-      interface->barrier(t);
-      std::cout << "After barrier." << std::endl;
-      for(std::string var : inVars) {
-	double val = interface->fetch<double>(var);
-	inVarValuesVec[ifn][var].push_back(val);
-	std::cout << "CFD in t = " << t << " " << ifn << ' ' << var << ' ' << val << std::endl;
-      }
-
-      i++;
-    }
-    std::cout << "Leaving exchangeData" << std::endl;
-  }
-
   void CFDSim::receiveData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>& interfaces,
 			    int step) {    
     std::cout << "Entering receiveData" << std::endl;
@@ -704,8 +686,9 @@ namespace cfdsim {
       std::cout << "After barrier." << std::endl;
       for(std::string var : inVars) {
 	double val = interface->fetch<double>(var);
-	inVarValuesVec[ifn][var].push_back(val);
-	std::cout << "CFD in t = " << t << " " << ifn << ' ' << var << ' ' << val << std::endl;
+	double cfdMassFlowRate = massFlowRateConversionFactor * val;
+	inVarValuesVec[ifn][var].push_back(cfdMassFlowRate);
+	std::cout << "CFD in t = " << t << " " << ifn << ' ' << var << ' ' << cfdMassFlowRate << std::endl;
       }
 
       i++;
@@ -727,8 +710,9 @@ namespace cfdsim {
       std::string ifn = interfaceNames[i];
 
       for(std::string var : outVars) {
-        std::cout << "CFD out t = " << t << " " << ifn << ' ' << var << ' ' << outVarValues[ifn][var] << std::endl;
-        interface->push(var, outVarValues[ifn][var]);
+	double mdForce = forceConversionFactor * outVarValues[ifn][var];
+        std::cout << "CFD out t = " << t << " " << ifn << ' ' << var << ' ' << mdForce << std::endl;
+        interface->push(var, mdForce);
       }
       interface->commit(t);
 
@@ -755,20 +739,24 @@ namespace cfdsim {
 
     int NEVERY = nStepsBetweenSamples; //TODO: replace NEVERY?
 
-    //TODO: replace this!
-    std::cout << "Set outputs before run." << std::endl;
-    for(std::string ifn : interfaceNames) {
-      for(std::string v : outVars) {
-	outVarValues[ifn][v] = F_;
-      }
-    }
-    std::cout << "Outputs set before run." << std::endl;
-
     bool halt = false;
     bool terminate = false;
     int64_t timestep = startTime;
     int numberOfMDs = interfaceNames.size();
     initialise(numberOfMDs);
+    //TODO: replace this!
+    int i = 0;
+    std::cout << "Set outputs before run." << std::endl;
+    for(std::string ifn : interfaceNames) {
+      for(std::string v : outVars) {
+	outVarValues[ifn][v] = F_;
+      }
+      f_[i] = F_;
+      std::cout << "Before run f_[" << i << "] = " << f_[i] << std::endl;
+      i++;
+    }
+    std::cout << "Outputs set before run." << std::endl;
+
     std::cout << "run: nMeasurement = " << nMeasurement << std::endl;
     for(int iter_ = 0; iter_ < nIter_; iter_++) {
       int32_t sampleCount = 0;
@@ -848,9 +836,8 @@ namespace cfdsim {
 	  for(std::string ifn : interfaceNames) {
 	    for(std::string v : outVars) {
 	      if(v == std::string("force")) {
-		//std::cout << "f_[" << posn << "] = " << f_[posn] << " will be replaced by 4.87e-13." << std::endl;
+		std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
 	        outVarValues[ifn][v] = f_[posn];
-		//outVarValues[ifn][v] = 4.87e-13;
 	      }
 	      else {
 		std::cout << "Unexpected variable '" << v << "'." << std::endl;
@@ -933,7 +920,7 @@ namespace cfdsim {
 	    Region r;
 	    r.interfaceName = token; // Simulation index
 	    iss >> token;
-	    r.sNorm = stod(token);
+	    r.sNorm = std::stod(token);
 	    iss >> token;
 	    assert(token == "}");
 	    add.emplace_back(r);
@@ -949,7 +936,7 @@ namespace cfdsim {
 	  Region r;
 	  r.interfaceName = token; // Simulation index
 	  iss >> token;
-	  r.sNorm = stod(token);
+	  r.sNorm = std::stod(token);
 	  iss >> token;
 	  assert(token == "}");
 	  remove.emplace_back(r);
