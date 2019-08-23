@@ -620,23 +620,27 @@ namespace cfdsim {
     //iter_++; // important
 
     Info << nl << "Statistics" << endl;
-    ofs << nl << "Statistics" << endl;
     Info << nl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
-        << "\t phi_i \t phiCoeffs_i \t"
-        << endl;
-    ofs << nl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
-        << "\t phi_i \t phiCoeffs_i \t"
-        << endl;
+	 << "\t phi_i \t phiCoeffs_i \t"
+	 << endl;
 
     for(label i = 0; i < nMicro_; i++) {
       Info << i << "\t" << s_[i] << "\t" << f_[i] << "\t" << mDot_[i]
-	  << "\t" << mDotMacro_[i] << "\t" << k_[i] << "\t" << phi_[i]
-	  << "\t" << phiCoeffs_[i]
-	  <<endl;
+	   << "\t" << mDotMacro_[i] << "\t" << k_[i] << "\t" << phi_[i]
+	   << "\t" << phiCoeffs_[i]
+	   << endl;
+    }
+
+    ofs << std::endl << "Statistics" << std::endl;
+    ofs << std::endl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
+        << "\t phi_i \t phiCoeffs_i \t"
+        << std::endl;
+
+    for(label i = 0; i < nMicro_; i++) {
       ofs << i << "\t" << s_[i] << "\t" << f_[i] << "\t" << mDot_[i]
 	  << "\t" << mDotMacro_[i] << "\t" << k_[i] << "\t" << phi_[i]
 	  << "\t" << phiCoeffs_[i]
-	  <<endl;
+	  << std::endl;
     }
   }
 
