@@ -33,10 +33,11 @@ namespace cfdsim {
     std::set<std::string> outVars;
     std::map<std::string, std::map<std::string, double>> outVarValues;
     std::map<std::string, std::map<std::string, std::vector<double>>> inVarValuesVec;
-    std::map<std::string, std::map<std::string, double>> averages;
+    std::map<std::string, std::map<std::string, std::vector<double>>> averages;
     std::vector<Region> regions;
     std::vector<Region> updatedRegions;
     std::vector<std::string> interfaceNames;
+    std::vector<string> reorderedInterfaceNames;
     const std::string exeName;
     const std::string cfdFileName;
     const std::string caseName;

@@ -40,7 +40,7 @@ namespace cfdsim {
     nEquilibration = readLabel(microDict.lookup("numberOfEquilibrationSteps"));
     nStepsBetweenSamples = readLabel(microDict.lookup("numberOfStepsBetweenSamples"));
 
-    nMeasurement = nSamples * nStepsBetweenSamples;
+    nMeasurement = nSamples * nStepsBetweenSamples * 3;
     allowed_lag_time = 2*time_dt;
   }
 
@@ -56,13 +56,17 @@ namespace cfdsim {
     kIs_.setSize(nMicro_);
 
     std::set<double> normalisedPositions;
+    std::cout << "normalisedPositions:";
     for(Region r : regions) {
       normalisedPositions.insert(r.sNorm);
+      std::cout << " " << r.sNorm;
     }
+    std::cout << std::endl;
 
     label i = 0;
     for(double s : normalisedPositions) {
       s_[i] = s*channel.length();
+      std::cout << "s_[" << i << "] = " << s_[i] << std::endl;
       i++;
     }
 
@@ -124,10 +128,13 @@ namespace cfdsim {
     getline(infs, line);
     std::istringstream str_stream1(line);
     Region r;
+    std::cout << "regions:";
     while(str_stream1 >> r) {
-      interfaceNames.emplace_back(r.interfaceName);
       regions.emplace_back(r);
+      std::cout << " " << r;
+      interfaceNames.emplace_back(r.interfaceName);
     }
+    std::cout << std::endl;
 
     infs >> keyWord;
     if(keyWord != "maxIndex") {
@@ -654,7 +661,7 @@ namespace cfdsim {
 	  sum += val;
 	}
 	std::cout << "ifn = " << ifn << ", var = " << var << ", average = " << (sum / nSamples) << std::endl;
-	averages[ifn][var] = sum / nSamples;
+	averages[ifn][var].push_back(sum / nSamples);
       }
     }
     std::cout << "Leaving calculateAverages" << std::endl;
@@ -682,7 +689,7 @@ namespace cfdsim {
 
     int i = 0;
     for(auto& interface : interfaces) {
-      std::string ifn = interfaceNames[i];
+      std::string ifn = reorderedInterfaceNames[i];
 
       interface->commit(t);  //TODO: understand this.
 
@@ -711,7 +718,7 @@ namespace cfdsim {
 
     int i = 0;
     for(auto& interface : interfaces) {
-      std::string ifn = interfaceNames[i];
+      std::string ifn = reorderedInterfaceNames[i];
 
       for(std::string var : outVars) {
 	double mdForce = forceConversionFactor * outVarValues[ifn][var];
@@ -734,9 +741,37 @@ namespace cfdsim {
   void CFDSim::run() {
     std::cout << "Entering run" << std::endl;
 
+    std::cout << "Interface names:";
+    for(std::string ifn : interfaceNames) {
+      std::cout << " " << ifn;
+    }
+    std::cout << std::endl;
+
     std::cout << "CFD creating interfaces." << std::endl;
     auto interfaces = mui::create_uniface<mui::config_3d>(std::string("CFD"), interfaceNames);
     std::cout << "CFD interfaces created." << std::endl;
+
+    std::hash<std::string> str_hash;
+    std::vector<std::size_t> hashes;
+    std::set<std::size_t> hashSet;
+    for(std::string ifn :interfaceNames) {
+      std::size_t hash = str_hash(ifn);
+      hashes.emplace_back(hash);
+      hashSet.insert(hash);
+    }
+    if(hashes.size() != hashSet.size()) {
+      std::cout << "ERROR: not all of the hashed names are distinct." << std::endl;
+      // Make sure program terminates even in MPMD mode.
+      MPI_Abort(MPI_COMM_WORLD, 999);
+    }
+    std::vector<std::size_t> sortedHashes(hashSet.begin(), hashSet.end());
+
+    for(std::size_t h : hashes) {
+      ptrdiff_t pos = std::find(sortedHashes.begin(), sortedHashes.end(), h) - sortedHashes.begin();
+      reorderedInterfaceNames.push_back(interfaceNames[pos]);
+      std::cout << "pos = " << pos << ", ifn = " << interfaceNames[pos] << std::endl;
+      printf( "hash = %08X\n", h);
+    }
 
     int nNodes = countNodes(MPI_COMM_WORLD);
     int nMDNodes = nNodes-1;
@@ -766,7 +801,7 @@ namespace cfdsim {
       int32_t sampleCount = 0;
 
       for(int i = 0; (i < nEquilibration) && (!terminate); i++) {
-	std::cout << "run:equib: timestep = " << timestep << std::endl;
+	//std::cout << "run:equib: timestep = " << timestep << std::endl;
 
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:equib:NEVERY: timestep = " << timestep << std::endl;
@@ -787,7 +822,7 @@ namespace cfdsim {
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << std::endl;
 	  if(iter_ == (nIter_ - 1)) {
-	      if(changeMDs(timestep, iter_)) {
+	    if(changeMDs(timestep, iter_)) {
 	      int newNumberOfMDs = updatedRegions.size();
 	      std::cout << "timestep = " << timestep << ": newNumberOfMDs = " << newNumberOfMDs << std::endl;
 	      std::cout << "timestep = " << timestep << ": maxIndex = " << maxIndex << std::endl;
@@ -824,8 +859,8 @@ namespace cfdsim {
 	    sort(regions.begin(), regions.end());
 	    int32_t j = 0;
 	    for(Region r : regions) {
-	      //std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
-	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")];
+	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
+	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")].back();
 	      std::cout << "mDot_[" << j << "] = " << mDot_[j] << std::endl;
 	      j++;
 	    }
