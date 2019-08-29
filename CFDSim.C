@@ -40,7 +40,7 @@ namespace cfdsim {
     nEquilibration = readLabel(microDict.lookup("numberOfEquilibrationSteps"));
     nStepsBetweenSamples = readLabel(microDict.lookup("numberOfStepsBetweenSamples"));
 
-    nMeasurement = nSamples * nStepsBetweenSamples * 3;
+    nMeasurement = nSamples * nStepsBetweenSamples;
     allowed_lag_time = 2*time_dt;
   }
 
