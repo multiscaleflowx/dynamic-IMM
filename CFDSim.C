@@ -381,7 +381,7 @@ namespace cfdsim {
       // Those MDs that existed before this run and are still needed must have
       // restart files created for them.
       for(auto r : updatedRegions) {
-	double mdForce = forceConversionFactor * F_; // TODO: replace F_ by f-[i].
+	double mdForce = forceConversionFactor * F_; // TODO: replace F_ by f_[i].
 	std::ostringstream f_strs;
 	f_strs << mdForce;
 	std::string mdF_str = f_strs.str();
@@ -751,11 +751,11 @@ namespace cfdsim {
     auto interfaces = mui::create_uniface<mui::config_3d>(std::string("CFD"), interfaceNames);
     std::cout << "CFD interfaces created." << std::endl;
 
-    std::hash<std::string> str_hash;
-    std::vector<std::size_t> hashes;
-    std::set<std::size_t> hashSet;
+    std::hash<std::string> str_hash; // Hash function for strings.
+    std::vector<int> hashes;
+    std::set<int> hashSet;
     for(std::string ifn :interfaceNames) {
-      std::size_t hash = str_hash(ifn);
+      int hash = (int)str_hash(ifn); // MUI has an implicit conversion from size_t to int.
       hashes.emplace_back(hash);
       hashSet.insert(hash);
     }
@@ -764,14 +764,40 @@ namespace cfdsim {
       // Make sure program terminates even in MPMD mode.
       MPI_Abort(MPI_COMM_WORLD, 999);
     }
-    std::vector<std::size_t> sortedHashes(hashSet.begin(), hashSet.end());
+    std::vector<int> sortedHashes(hashSet.begin(), hashSet.end());
 
-    for(std::size_t h : hashes) {
-      ptrdiff_t pos = std::find(sortedHashes.begin(), sortedHashes.end(), h) - sortedHashes.begin();
+    std::cout << "hashes:";
+    for(int h : hashes) {
+      printf( " %08X", h);
+    }
+    std::cout << std::endl;
+
+    std::set<int>::iterator it = hashSet.begin();
+    std::cout << "hashSet:";
+    while (it != hashSet.end()) {
+      printf( " %08X", (*it));
+      it++;
+    }
+    std::cout << std::endl;
+
+    std::cout << "sorted hashes:";
+    for(int h : sortedHashes) {
+      printf( " %08X", h);
+    }
+    std::cout << std::endl;
+
+    for(int h : sortedHashes) {
+      ptrdiff_t pos = std::find(hashes.begin(), hashes.end(), h) - hashes.begin();
       reorderedInterfaceNames.push_back(interfaceNames[pos]);
       std::cout << "pos = " << pos << ", ifn = " << interfaceNames[pos] << std::endl;
       printf( "hash = %08X\n", h);
     }
+
+    std::cout << "sorted names:";
+    for(std::string s : reorderedInterfaceNames) {
+      std::cout << " " << s;
+    }
+    std::cout << std::endl;
 
     int nNodes = countNodes(MPI_COMM_WORLD);
     int nMDNodes = nNodes-1;
