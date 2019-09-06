@@ -67,6 +67,7 @@ namespace cfdsim {
     scalarField mDot_; // mass flow rates mDot_i
     scalarField k_; // flow resistances k_i
     scalarField f_; // micro forces f_i
+    scalarField f_old_; // previous micro forces f_old_i
     List< List< List<scalar> > > kIs_; // keep track of older flow resistance information 
     scalar rhoN_; // reference number density //*** check 
     scalarField phiCoeffs_; // Fourier phi coefficients

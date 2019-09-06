@@ -63,9 +63,9 @@ fix_modify 3 temp tempMobile
 
 # Poiseuille flow
 
-variable        force internal 0.0
+#variable        force internal 0.0
 velocity	boundary set 0.0 0.0 0.0
-fix		6 liquid addforce v_force 0.0 0.0
+#fix		6 liquid addforce 0.0 0.0 0.0
 
 # Compute total momentum
 compute	        total_mom liquid momentum
@@ -79,8 +79,8 @@ thermo		5
 #thermo_modify   temp mobile
 
 variable        shutdown internal 0
-variable        communicate internal 1
 variable        force internal @f
+fix             body_force liquid mui/addforce v_force 0.0 0.0 every @nevery
 fix		cfd all mui/connect md@id @id
 fix		push_mass_flow all mui/push cfd @id PARAM mass_flow_x mass_flow_x EVERY @nevery
 fix		fetchforce all mui/fetch_param cfd @id force force EVERY  @nevery
@@ -89,31 +89,27 @@ fix             halt all halt @nevery v_shutdown > 0 error soft
 
 reset_timestep  @t
 
+variable	step equal @t
+fix extra all print 1 "@id: at step ${step} v_force is ${force}"
+
 variable        a loop 0 @niterM1
-label		iterative_solve
+label		  iterative_solve
 
 print "@id: start of iteration $a."
 
 # Equilibration
 
-print "@id: trying to set force."
-
-fix             body_force liquid addforce v_force 0.0 0.0
-
-print "@id: v_force is now ${force}."
-
-variable	communicate delete
-variable	communicate internal 0
 print "@id: start equilibration run$a."
-run		@nequib
-variable	communicate delete
+run   	    @nequib every 1 "variable step equal ${step}+1"
 
 # Measurement
 dump            1 all custom 1 @id.lammpstrj id type x y z
-variable	communicate delete
-variable	communicate internal 1
+
 print "@id: start measurement run$a."
-run		@nsteps
+print "@id: v_force is ${force} before measurement run. XXX"
+run   	    @nsteps every 1 "variable step equal ${step}+1"
+print "@id: v_force is ${force} after measurement run. XXX"
+
 undump          1
-next		a
-jump		SELF iterative_solve
+next			a
+jump				SELF iterative_solve

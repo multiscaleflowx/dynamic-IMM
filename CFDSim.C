@@ -51,6 +51,7 @@ namespace cfdsim {
     mDot_.setSize(nMicro_, 0.0);
     k_.setSize(nMicro_, 1.0);
     f_.setSize(nMicro_, 0.0);
+    f_old_.setSize(nMicro_, 0.0);
     phi_.setSize(nMicro_, 0.0);
     phiCoeffs_.setSize(nMicro_, 0.0);
     kIs_.setSize(nMicro_);
@@ -615,6 +616,7 @@ namespace cfdsim {
 
     std::cout << "Setting new forces" << std::endl;
     for(label i = 0; i < nMicro_; i++) {
+      f_old_[i] = f_[i];
       f_[i] = (F_ + phi_[i]/rhoN_);
 
       if(k_[i] != 0.0) {
@@ -708,7 +710,7 @@ namespace cfdsim {
   }
 
   void CFDSim::sendData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>& interfaces,
-			    int step) {    
+			int step) {
     std::cout << "Entering sendData" << std::endl;
 
     double allowed_lag_time = 2*time_dt;
@@ -722,6 +724,7 @@ namespace cfdsim {
 
       for(std::string var : outVars) {
 	double mdForce = forceConversionFactor * outVarValues[ifn][var];
+	std::cout << "outVarValues[" << ifn << "][" << var << "]" << outVarValues[ifn][var] << std::endl;
         std::cout << "CFD out t = " << t << " " << ifn << ' ' << var << ' ' << mdForce << std::endl;
         interface->push(var, mdForce);
       }
@@ -814,15 +817,19 @@ namespace cfdsim {
     std::cout << "Set outputs before run." << std::endl;
     for(std::string ifn : interfaceNames) {
       for(std::string v : outVars) {
-	outVarValues[ifn][v] = F_;
+	outVarValues[ifn][v] = 0; // Set initial value in script.
       }
       f_[i] = F_;
+      f_old_[i] = F_;
       std::cout << "Before run f_[" << i << "] = " << f_[i] << std::endl;
+      std::cout << "Before run f_old_[" << i << "] = " << f_old_[i] << std::endl;
       i++;
     }
     std::cout << "Outputs set before run." << std::endl;
 
+    std::cout << "run: nEquilibration = " << nEquilibration << std::endl;
     std::cout << "run: nMeasurement = " << nMeasurement << std::endl;
+
     for(int iter_ = 0; iter_ < nIter_; iter_++) {
       int32_t sampleCount = 0;
 
@@ -832,8 +839,30 @@ namespace cfdsim {
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:equib:NEVERY: timestep = " << timestep << std::endl;
 
+	  if(iter_ > 0) {
+	    for(std::string ifn : interfaceNames) {
+	      for(std::string v : outVars) {
+		if(v == std::string("force")) {
+		  std::cout << "Equib: Setting force delta to zero." << std::endl;
+		  outVarValues[ifn][v] = 0.0;
+		}
+	      }
+	    }
+	  }
 	  receiveData(interfaces, timestep);
+	  std::cout << "equib++++ i = " << i << std::endl;
+	  // The initial force is set in the LAMMPS script.
 	  sendData(interfaces, timestep);
+	  if(i > 0) {
+	    for(std::string ifn : interfaceNames) {
+	      for(std::string v : outVars) {
+		if(v == std::string("force")) {
+		  std::cout << "Equib: Setting force delta to zero." << std::endl;
+		  outVarValues[ifn][v] = 0.0;
+		}
+	      }
+	    }
+	  }
 
           double val = double(false);
 	  double max_val; // To keep MPI_Allreduce happy. It will be set to the value of val.
@@ -891,28 +920,41 @@ namespace cfdsim {
 	      j++;
 	    }
 	    clearAccumulators();
+	    sampleCount = 0;
+
 	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	    solve(iter_, numberOfMDs);
-	    sampleCount = 0;
-          }
 
-	  int32_t posn = 0;
-	  //std::cout << "Set outputs" << std::endl;
-	  for(std::string ifn : interfaceNames) {
-	    for(std::string v : outVars) {
-	      if(v == std::string("force")) {
-		std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
-	        outVarValues[ifn][v] = f_[posn];
+	    int32_t posn = 0;
+	    for(std::string ifn : interfaceNames) {
+	      for(std::string v : outVars) {
+		if(v == std::string("force")) {
+		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
+		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
+		  outVarValues[ifn][v] = f_[posn] - f_old_[posn];
+		  std::cout << "Force delta set to " << outVarValues[ifn][v] << std::endl;
+		}
+		else {
+		  std::cout << "Unexpected variable '" << v << "'." << std::endl;
+		  outVarValues[ifn][v] = 0.0;
+		}
 	      }
-	      else {
-		std::cout << "Unexpected variable '" << v << "'." << std::endl;
-		outVarValues[ifn][v] = 0.0;
+	      posn++;
+	    }
+          }
+	  else {
+	    for(std::string ifn : interfaceNames) {
+	      for(std::string v : outVars) {
+		if(v == std::string("force")) {
+		  std::cout << "Setting force delta to zero." << std::endl;
+		  outVarValues[ifn][v] = 0.0;
+		}
 	      }
 	    }
-	    posn++;
 	  }
-	  //std::cout << "Outputs set" << std::endl;
+	  std::cout << "Outputs set" << std::endl;
 
+	  std::cout << "meas++++ i = " << i << std::endl;
           sendData(interfaces, timestep);
 
 	  double val = double(terminate);
