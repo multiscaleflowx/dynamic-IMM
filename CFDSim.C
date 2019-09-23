@@ -42,6 +42,7 @@ namespace cfdsim {
     nEquilibration = readLabel(microDict.lookup("numberOfEquilibrationSteps"));
     nStepsBetweenSamples = readLabel(microDict.lookup("numberOfStepsBetweenSamples"));
 
+    // The number of time steps used to compute an average flow rate.
     nMeasurement = nSamples * nStepsBetweenSamples;
   }
 
@@ -78,7 +79,7 @@ namespace cfdsim {
 	kIs_[i][j].setSize(3, 0.0);
       }
     }
-    Info << nl << "Macro solver initialised" << nl << endl;  
+    Info << nl << "Macro solver initialised" << nl << endl;
   }
 
   void CFDSim::readConfigFile() {
@@ -758,14 +759,15 @@ namespace cfdsim {
     std::set<int> hashSet;
     for(std::string ifn :interfaceNames) {
       int hash = (int)str_hash(ifn); // MUI has an implicit conversion from size_t to int.
-      hashes.emplace_back(hash);
-      hashSet.insert(hash);
+      hashes.emplace_back(hash); // These are in the order in which the interface names are supplied.
+      hashSet.insert(hash); // These are in lexical order of the hashes.
     }
     if(hashes.size() != hashSet.size()) {
       std::cout << "ERROR: not all of the hashed names are distinct." << std::endl;
       // Make sure program terminates even in MPMD mode.
       MPI_Abort(MPI_COMM_WORLD, 999);
     }
+    // It is easier to work with a sorted vector so create one from the sorted hash set.
     std::vector<int> sortedHashes(hashSet.begin(), hashSet.end());
 
     std::cout << "hashes:";
@@ -788,6 +790,7 @@ namespace cfdsim {
     }
     std::cout << std::endl;
 
+    // Sort the interface names to match the order in which the unifaces (interfaces) are created.
     for(int h : sortedHashes) {
       ptrdiff_t pos = std::find(hashes.begin(), hashes.end(), h) - hashes.begin();
       reorderedInterfaceNames.push_back(interfaceNames[pos]);
