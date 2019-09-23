@@ -53,6 +53,8 @@ namespace cfdsim {
     scalar F_; // Body force in Newtons
 
     double time_dt;
+    double acceptableError;
+    double tolerance;
     int64_t nStepsPerIter; // Total number of micro element steps per iteration.
     int32_t nEquilibration; // Number of equilibration steps.
     int32_t nStepsBetweenSamples;
@@ -125,6 +127,9 @@ namespace cfdsim {
 
     bool changesRequired(int, int);
 
+    bool converged(int, double&);
+
+    bool convergedOverall(bool, double, double);
   };
 }
 

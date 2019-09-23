@@ -30,6 +30,8 @@ namespace cfdsim {
 
     nIter_= readLabel(macroDict.lookup("nSolverCalls"));
     nSamples = readLabel(macroDict.lookup("numberOfSamplesToAverageOver"));
+    acceptableError = readScalar(macroDict.lookup("acceptableError"));
+    tolerance = readScalar(macroDict.lookup("tolerance"));
 
     molMass = readScalar(microDict.lookup("molMass"));
 
@@ -808,6 +810,19 @@ namespace cfdsim {
     bool terminate = false;
     int64_t timestep = startTime;
     int numberOfMDs = interfaceNames.size();
+    bool flowRateHasBeenPreviouslyEstimated;
+    double estimatedFlowRate;
+    if(numberOfMDs != 0) {
+      std::ifstream flowRateFileStream("estimatedFlowRate");
+      flowRateHasBeenPreviouslyEstimated = flowRateFileStream.good();
+      if(flowRateHasBeenPreviouslyEstimated) { // File exists.
+	flowRateFileStream >> estimatedFlowRate;
+	flowRateFileStream.close();
+      }
+    }
+    else {
+      flowRateHasBeenPreviouslyEstimated = false;
+    }
     initialise(numberOfMDs);
     //TODO: replace this!
     int i = 0;
@@ -847,7 +862,7 @@ namespace cfdsim {
 	    }
 	  }
 	  receiveData(interfaces, timestep);
-	  std::cout << "equib++++ i = " << i << std::endl;
+
 	  // The initial force is set in the LAMMPS script.
 	  sendData(interfaces, timestep);
 	  if(i > 0) {
@@ -869,11 +884,13 @@ namespace cfdsim {
 	timestep++;
       }
 
+      bool hasConverged = (numberOfMDs == 0); // Do not want to test for convergence if the are no MDs.
+      double meanFlowRate;
       for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
 	//std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	if((timestep % NEVERY) == 0) {
-	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << std::endl;
-	  if(iter_ == (nIter_ - 1)) {
+	  std::cout << "run:measurement:NEVERY: timestep = " << timestep ", hasConverged = " << hasConverged << ", iter_ = " << iter_ << std::endl;
+	  if(hasConverged || iter_ == (nIter_ - 1)) {
 	    if(changeMDs(timestep, iter_)) {
 	      int newNumberOfMDs = updatedRegions.size();
 	      std::cout << "timestep = " << timestep << ": newNumberOfMDs = " << newNumberOfMDs << std::endl;
@@ -921,6 +938,8 @@ namespace cfdsim {
 
 	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	    solve(iter_, numberOfMDs);
+	    hasConverged = converged(numberOfMDs, meanFlowRate);
+	    halt = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
 
 	    int32_t posn = 0;
 	    for(std::string ifn : interfaceNames) {
@@ -949,9 +968,8 @@ namespace cfdsim {
 	      }
 	    }
 	  }
-	  std::cout << "Outputs set" << std::endl;
+	  //std::cout << "Outputs set" << std::endl;
 
-	  std::cout << "meas++++ i = " << i << std::endl;
           sendData(interfaces, timestep);
 
 	  double val = double(terminate);
@@ -1076,4 +1094,51 @@ namespace cfdsim {
     return change;
   }
 
+  bool CFDSim::converged(int nMicro_, double& mean) {
+    if(nMicro_ == 0) {
+      return true;
+    }
+
+    double sum = 0.0;
+    for(label i = 0; i < nMicro_; i++) {
+      sum += mDot_[i];
+    }
+
+    mean = sum / nMicro_;
+
+    double variance = 0.0;
+    for(label i = 0; i < nMicro_; i++) {
+      variance += pow(mDot_[i] - mean, 2);
+    }
+
+    double standardError = std::sqrt(variance / nMicro_);
+
+    double normalisedError = standardError / mean;
+
+    ofs << "The mean is " << mean << " and the normalised error is " << normalisedError << std::endl;
+
+    std::ofstream flowRateFileStream("estimatedFlowRate");
+    flowRateFileStream << mean << std::endl;
+    flowRateFileStream.close();
+
+    bool hasConverged = normalisedError < acceptableError;
+    ofs << "hasConverged = " << hasConverged;
+    return hasConverged;
+  }
+
+  bool CFDSim::convergedOverall(bool previousEstimateExists, double previousEstimate, double meanFlowRate) {
+    if(!previousEstimateExists) {
+      return false;
+    }
+
+    double variance =  pow(previousEstimate - meanFlowRate, 2);
+
+    double normalisedChange = std::sqrt(variance / meanFlowRate);
+
+    ofs << "The overall normalised change is " << normalisedChange << std::endl;
+
+    bool hasConvergedOverall = normalisedChange < tolerance;
+    ofs << "hasConvergedOverall = " << hasConverged;
+    return hasConvergedOverall;
+  }
 }
