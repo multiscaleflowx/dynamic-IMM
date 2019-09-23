@@ -41,7 +41,6 @@ namespace cfdsim {
     nStepsBetweenSamples = readLabel(microDict.lookup("numberOfStepsBetweenSamples"));
 
     nMeasurement = nSamples * nStepsBetweenSamples;
-    allowed_lag_time = 2*time_dt;
   }
 
   void CFDSim::initialise(int nMicro_) {
@@ -684,7 +683,6 @@ namespace cfdsim {
 			    int step) {    
     std::cout << "Entering receiveData" << std::endl;
 
-    double allowed_lag_time = 2*time_dt;
     double t = step*time_dt;
 
     std::cout << "receiveData: step = " << step << ", t = " << t << std::endl;
@@ -713,7 +711,6 @@ namespace cfdsim {
 			int step) {
     std::cout << "Entering sendData" << std::endl;
 
-    double allowed_lag_time = 2*time_dt;
     double t = step*time_dt;
 
     std::cout << "sendData: step = " << step << ", t = " << t << std::endl;
