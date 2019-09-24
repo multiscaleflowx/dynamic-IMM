@@ -52,7 +52,7 @@ namespace cfdsim {
     s_.setSize(nMicro_, 0.0);
     mDot_.setSize(nMicro_, 0.0);
     k_.setSize(nMicro_, 1.0);
-    f_.setSize(nMicro_, 0.0);
+    f_.setSize(nMicro_, F_); // F_ is the correct initial value for f_.
     f_old_.setSize(nMicro_, 0.0);
     phi_.setSize(nMicro_, 0.0);
     phiCoeffs_.setSize(nMicro_, 0.0);
@@ -828,17 +828,19 @@ namespace cfdsim {
     }
     initialise(numberOfMDs);
     //TODO: replace this!
-    int i = 0;
+    //int i = 0;
     std::cout << "Set outputs before run." << std::endl;
     for(std::string ifn : interfaceNames) {
       for(std::string v : outVars) {
-	outVarValues[ifn][v] = 0; // Set initial value in script.
+	outVarValues[ifn][v] = F_;
       }
+      /*
       f_[i] = F_;
       f_old_[i] = F_;
       std::cout << "Before run f_[" << i << "] = " << f_[i] << std::endl;
       std::cout << "Before run f_old_[" << i << "] = " << f_old_[i] << std::endl;
       i++;
+      */
     }
     std::cout << "Outputs set before run." << std::endl;
 
@@ -854,30 +856,10 @@ namespace cfdsim {
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:equib:NEVERY: timestep = " << timestep << std::endl;
 
-	  if(iter_ > 0) {
-	    for(std::string ifn : interfaceNames) {
-	      for(std::string v : outVars) {
-		if(v == std::string("force")) {
-		  std::cout << "Equib: Setting force delta to zero." << std::endl;
-		  outVarValues[ifn][v] = 0.0;
-		}
-	      }
-	    }
-	  }
 	  receiveData(interfaces, timestep);
 
 	  // The initial force is set in the LAMMPS script.
 	  sendData(interfaces, timestep);
-	  if(i > 0) {
-	    for(std::string ifn : interfaceNames) {
-	      for(std::string v : outVars) {
-		if(v == std::string("force")) {
-		  std::cout << "Equib: Setting force delta to zero." << std::endl;
-		  outVarValues[ifn][v] = 0.0;
-		}
-	      }
-	    }
-	  }
 
           double val = double(false);
 	  double max_val; // To keep MPI_Allreduce happy. It will be set to the value of val.
@@ -892,7 +874,7 @@ namespace cfdsim {
       for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
 	//std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	if((timestep % NEVERY) == 0) {
-	  std::cout << "run:measurement:NEVERY: timestep = " << timestep ", hasConverged = " << hasConverged << ", iter_ = " << iter_ << std::endl;
+	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << ", hasConverged = " << hasConverged << ", iter_ = " << iter_ << std::endl;
 	  if(hasConverged || iter_ == (nIter_ - 1)) {
 	    if(changeMDs(timestep, iter_)) {
 	      int newNumberOfMDs = updatedRegions.size();
@@ -950,27 +932,18 @@ namespace cfdsim {
 		if(v == std::string("force")) {
 		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
 		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
-		  outVarValues[ifn][v] = f_[posn] - f_old_[posn];
-		  std::cout << "Force delta set to " << outVarValues[ifn][v] << std::endl;
+		  double deltaF_ = f_old_[posn] - f_[posn];
+		  outVarValues[ifn][v] = deltaF_;
+		  std::cout << "Force delta set to " << deltaF_ << std::endl;
 		}
 		else {
 		  std::cout << "Unexpected variable '" << v << "'." << std::endl;
-		  outVarValues[ifn][v] = 0.0;
+		  MPI_Abort(MPI_COMM_WORLD, 999);
 		}
 	      }
 	      posn++;
 	    }
           }
-	  else {
-	    for(std::string ifn : interfaceNames) {
-	      for(std::string v : outVars) {
-		if(v == std::string("force")) {
-		  std::cout << "Setting force delta to zero." << std::endl;
-		  outVarValues[ifn][v] = 0.0;
-		}
-	      }
-	    }
-	  }
 	  //std::cout << "Outputs set" << std::endl;
 
           sendData(interfaces, timestep);
@@ -1141,7 +1114,7 @@ namespace cfdsim {
     ofs << "The overall normalised change is " << normalisedChange << std::endl;
 
     bool hasConvergedOverall = normalisedChange < tolerance;
-    ofs << "hasConvergedOverall = " << hasConverged;
+    ofs << "hasConvergedOverall = " << hasConvergedOverall << std::endl;
     return hasConvergedOverall;
   }
 }
