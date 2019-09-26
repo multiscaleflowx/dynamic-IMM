@@ -22,7 +22,7 @@ namespace cfdsim {
     const double hNeck = readScalar(macroDict.lookup("hNeck"));
     channel = Channel(length, hEnd, hNeck);
 
-    ofs.open("solver_output");
+    ofs.open("solver_output"); // Where to put a copy of the output from the solver.
 
     F_ = readScalar(macroDict.lookup("F"));
     std::cout << "Read in: F_ = " << F_ << std::endl;
@@ -66,6 +66,7 @@ namespace cfdsim {
     }
     std::cout << std::endl;
 
+    // Compute the heights of the channel for the various regions.
     label i = 0;
     for(double s : normalisedPositions) {
       s_[i] = s*channel.length();
@@ -874,7 +875,7 @@ namespace cfdsim {
       for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
 	//std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	if((timestep % NEVERY) == 0) {
-	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << ", hasConverged = " << hasConverged << ", iter_ = " << iter_ << std::endl;
+	  //std::cout << "run:measurement:NEVERY: timestep = " << timestep << ", hasConverged = " << hasConverged << ", iter_ = " << iter_ << std::endl;
 	  if(hasConverged || iter_ == (nIter_ - 1)) {
 	    if(changeMDs(timestep, iter_)) {
 	      int newNumberOfMDs = updatedRegions.size();
@@ -924,7 +925,17 @@ namespace cfdsim {
 	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	    solve(iter_, numberOfMDs);
 	    hasConverged = converged(numberOfMDs, meanFlowRate);
+	    /*
+	    if(iter_ == 2) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
+	      hasConverged = true;
+	      ofs << "Asserting convergence at iter_ = 2." << std::endl;
+	    }
 	    halt = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
+	    if(numberOfMDs == 5) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
+	      halt = true;
+	      ofs << "Asserting overall convergence for numberOfMDs = 5." << std::endl;
+	    }
+	    */
 
 	    int32_t posn = 0;
 	    for(std::string ifn : interfaceNames) {
@@ -932,6 +943,7 @@ namespace cfdsim {
 		if(v == std::string("force")) {
 		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
 		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
+		  //double deltaF_ = f_[posn] - f_old_[posn];
 		  double deltaF_ = f_old_[posn] - f_[posn];
 		  outVarValues[ifn][v] = deltaF_;
 		  std::cout << "Force delta set to " << deltaF_ << std::endl;
@@ -1089,7 +1101,7 @@ namespace cfdsim {
 
     double standardError = std::sqrt(variance / nMicro_);
 
-    double normalisedError = standardError / mean;
+    double normalisedError = standardError / std::abs(mean);
 
     ofs << "The mean is " << mean << " and the normalised error is " << normalisedError << std::endl;
 
@@ -1098,7 +1110,7 @@ namespace cfdsim {
     flowRateFileStream.close();
 
     bool hasConverged = normalisedError < acceptableError;
-    ofs << "hasConverged = " << hasConverged;
+    ofs << "hasConverged = " << hasConverged << std::endl;
     return hasConverged;
   }
 

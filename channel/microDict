@@ -14,14 +14,14 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-molMass                       6.6335e-26;
+molMass                       6.6335209e-26;
 
 lengthOfRegion                80e-10;
 widthOfRegion                 54.4e-10;
 
-microTimeStep                 0.002;
+microTimeStep                 1;
 
-numberOfEquilibrationSteps    500000;
-numberOfStepsBetweenSamples   1000;
+numberOfEquilibrationSteps    50000;
+numberOfStepsBetweenSamples   100;
 
 // ************************************************************************* //
