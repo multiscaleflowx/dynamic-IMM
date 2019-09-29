@@ -18,11 +18,11 @@ length          680e-10;
 hEnd            34e-10;
 hNeck           20.4e-10;
 
-rho             1437;
+rhoN            216.63162e+26;
 
 F               0.487e-12;
 
-nSolverCalls    5;
+nSolverCalls    3;
 numberOfSamplesToAverageOver  1000;
 
 acceptableError 0.04;
