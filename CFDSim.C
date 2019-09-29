@@ -26,7 +26,7 @@ namespace cfdsim {
 
     F_ = readScalar(macroDict.lookup("F"));
     std::cout << "Read in: F_ = " << F_ << std::endl;
-    rhoN_ = readScalar(macroDict.lookup("rho"));
+    rhoN_ = readScalar(macroDict.lookup("rhoN"));
 
     nIter_= readLabel(macroDict.lookup("nSolverCalls"));
     nSamples = readLabel(macroDict.lookup("numberOfSamplesToAverageOver"));
@@ -684,7 +684,8 @@ namespace cfdsim {
   }
 
   void CFDSim::receiveData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>& interfaces,
-			    int step) {    
+			   int step,
+			   bool saveData) {
     std::cout << "Entering receiveData" << std::endl;
 
     double t = step*time_dt;
@@ -702,7 +703,9 @@ namespace cfdsim {
       for(std::string var : inVars) {
 	double val = interface->fetch<double>(var);
 	double cfdMassFlowRate = massFlowRateConversionFactor * val;
-	inVarValuesVec[ifn][var].push_back(cfdMassFlowRate);
+	if(saveData) {
+	  inVarValuesVec[ifn][var].push_back(cfdMassFlowRate);
+	}
 	std::cout << "CFD in t = " << t << " " << ifn << ' ' << var << ' ' << cfdMassFlowRate << std::endl;
       }
 
@@ -857,7 +860,7 @@ namespace cfdsim {
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:equib:NEVERY: timestep = " << timestep << std::endl;
 
-	  receiveData(interfaces, timestep);
+	  receiveData(interfaces, timestep, false);
 
 	  // The initial force is set in the LAMMPS script.
 	  sendData(interfaces, timestep);
@@ -901,9 +904,12 @@ namespace cfdsim {
 	      }
 	      terminate = true;
 	    }
+	    if(hasConverged) {
+	      terminate = true;
+	    }
 	  }
 
-	  receiveData(interfaces, timestep);
+	  receiveData(interfaces, timestep, true);
 
           sampleCount++;
 	  //std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
@@ -929,6 +935,7 @@ namespace cfdsim {
 	    if(iter_ == 2) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
 	      hasConverged = true;
 	      ofs << "Asserting convergence at iter_ = 2." << std::endl;
+	      std::cout << "Asserting convergence at iter_ = 2." << std::endl;
 	    }
 	    halt = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
 	    if(numberOfMDs == 5) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
@@ -944,7 +951,8 @@ namespace cfdsim {
 		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
 		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
 		  //double deltaF_ = f_[posn] - f_old_[posn];
-		  double deltaF_ = f_old_[posn] - f_[posn];
+		  //double deltaF_ = f_old_[posn] - f_[posn];
+		  double deltaF_ = f_[posn];
 		  outVarValues[ifn][v] = deltaF_;
 		  std::cout << "Force delta set to " << deltaF_ << std::endl;
 		}
