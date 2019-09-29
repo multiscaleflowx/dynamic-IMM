@@ -16,11 +16,11 @@ variable liq_upper_lim equal ${chnl_Y_coord}-1
 variable liq_lower_lim equal ${num_lat_wall_Y}+1
 
 
-variable  molNo  equal  round(0.8654*(@l*@w*@h)/39.948)
+variable  molNo  equal  round(0.8654*(80*54.4*@h)/39.948) # calculation is done in real unit system
 
-variable  lat    equal  (@l*@w*2.15*(${liq_upper_lim}-${liq_lower_lim})/${molNo})^0.333333
-variable  length equal  @l/${lat}
-variable  width  equal  @w/${lat}
+variable  lat    equal  (80*54.4*2.15*(${liq_upper_lim}-${liq_lower_lim})/${molNo})^0.333333
+variable  length equal  80/${lat}
+variable  width  equal  54.4/${lat}
 variable  minh   equal  ${liq_lower_lim}*2.15/${lat} 
 variable  maxh   equal  ${liq_upper_lim}*2.15/${lat}
 # create geometry
@@ -29,18 +29,16 @@ lattice		sc 2.15
 region		domain block 0 @l 0 ${dom_upper_limt} 0 @w
 create_box	3 domain
 
-region		box1 block 0 @l 0 ${num_lat_wall_Y} 0 @w
+region		box1 block 0 @l 0 ${num_lat_wall_Y} 0 @w  
 create_atoms	1 region box1
 
-region		box2 block 0 @l ${chnl_Y_coord} ${dom_upper_limt} 0 @w
+region		box2 block 0 @l ${chnl_Y_coord} ${dom_upper_limt} 0 @w  
 create_atoms	2 region box2
 
-lattice		  sc ${lat}
-region		     box3 block 0 ${length} ${minh} ${maxh} 0 ${width}
+lattice		  sc ${lat}  #to arrage the water molecules in a lattice and so avoid interference
+region		     box3 block 0 ${length} ${minh} ${maxh} 0 ${width}  
 create_atoms	     3 region box3
 
-#region		       box3 block 0 37.21 ${liq_lower_lim} ${liq_upper_lim} 0 25.3
-#create_atoms	       3 random ${molNo} 123 box3
 
 mass		1 39.948
 mass		2 39.948
@@ -87,6 +85,7 @@ thermo		500
 #thermo_modify   temp mobile
 
 variable        shutdown internal 0
+
 variable        force internal @f
 fix		cfd all mui/connect md@id @id
 fix		push_mass_flow all mui/push cfd @id PARAM mass_flow_x mass_flow_x EVERY @nevery
@@ -103,9 +102,10 @@ print "@id: start of iteration $a."
 
 # Equilibration
 
-print "@id: using addforce."
+print "@id: trying to set force."
 
 fix             body_force liquid addforce v_force 0.0 0.0
+
 
 print "@id: start equilibration run$a."
 run		@nequib
