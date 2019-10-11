@@ -8,6 +8,19 @@
 
 #include "CFDSim.H"
 
+std::string exec(const char* cmd) {
+  std::array<char, 128> buffer;
+  std::string result;
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  if (!pipe) {
+    throw std::runtime_error("popen() failed!");
+  }
+  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    result += buffer.data();
+  }
+  return result;
+}
+
 namespace cfdsim {
 
   CFDSim::CFDSim(const char* exe,
@@ -22,7 +35,9 @@ namespace cfdsim {
     const double hNeck = readScalar(macroDict.lookup("hNeck"));
     channel = Channel(length, hEnd, hNeck);
 
-    ofs.open("solver_output"); // Where to put a copy of the output from the solver.
+    std::string solver_output("solver_output");
+    solver_output.append(std::to_string(startTime));
+    ofs.open(solver_output); // Where to put a copy of the output from the solver.
 
     F_ = readScalar(macroDict.lookup("F"));
     std::cout << "Read in: F_ = " << F_ << std::endl;
@@ -431,6 +446,18 @@ namespace cfdsim {
     return change;
   }
 
+  int CFDSim::countNodes() {
+    char* pVar;
+    pVar = getenv ("PBS_JOBID");
+    std::string command("qstat -a | grep ");
+    command.append(pVar);
+    command.append(" | awk '{print $6}'");
+    const char* cmd = command.c_str();
+    std::string result = exec(cmd);
+
+    return std::stoi(result);
+  }
+
   int CFDSim::countNodes(MPI_Comm comm) {
     std::cout << "Entering countNodes" << std::endl;
     char processorName[MPI_MAX_PROCESSOR_NAME];
@@ -815,7 +842,11 @@ namespace cfdsim {
     }
     std::cout << std::endl;
 
-    int nNodes = countNodes(MPI_COMM_WORLD);
+    int nNodes;
+    nNodes = countNodes(MPI_COMM_WORLD);
+    std::cout << "B: nNodes = " << nNodes << std::endl;
+    nNodes = countNodes();
+    std::cout << "A: nNodes = " << nNodes << std::endl;
     int nMDNodes = nNodes-1;
 
     int NEVERY = nStepsBetweenSamples; //TODO: replace NEVERY?
@@ -962,7 +993,7 @@ namespace cfdsim {
 	    halt = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
 	    if(numberOfMDs == 5) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
 	      halt = true;
-	      ofs << "Asserting overall convergence for numberOfMDs = 5." << std::endl;
+              ofs << "Asserting overall convergence for numberOfMDs = 5." << std::endl;
 	    }
 	    */
 
