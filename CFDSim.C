@@ -889,10 +889,12 @@ namespace cfdsim {
     std::cout << "run: nEquilibration = " << nEquilibration << std::endl;
     std::cout << "run: nMeasurement = " << nMeasurement << std::endl;
 
+    bool hasConverged = (numberOfMDs == 0); // Do not want to test for convergence if the are no MDs.
+    bool hasConvergedOverall = false;
     for(int iter_ = 0; iter_ < nIter_; iter_++) {
       int32_t sampleCount = 0;
 
-      for(int i = 0; (i < nEquilibration) && (!terminate); i++) {
+      for(int i = 0; (i < nEquilibration) && (!terminate) && (!hasConverged) && (!hasConvergedOverall); i++) {
 	//std::cout << "run:equib: timestep = " << timestep << std::endl;
 
 	if((timestep % NEVERY) == 0) {
@@ -960,6 +962,20 @@ namespace cfdsim {
 	    if(hasConverged) {
 	      terminate = true;
 	    }
+	    hasConvergedOverall = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
+	    /*
+	    if(numberOfMDs == 5) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
+	      hasConvergedOverall = true;
+	      ofs << "Asserting overall convergence for numberOfMDs = 5." << std::endl;
+	    }
+	    */
+	    if(hasConvergedOverall) {
+	      halt = true;
+	      std::ifstream cmdFile("cmd");
+	      if(cmdFile.good()) { // Call move only if the file exists.
+		std::system("mv cmd halt");
+	      }
+	    }
 	  }
 
 	  receiveData(interfaces, timestep);
@@ -989,11 +1005,6 @@ namespace cfdsim {
 	      hasConverged = true;
 	      ofs << "Asserting convergence at iter_ = 2." << std::endl;
 	      std::cout << "Asserting convergence at iter_ = 2." << std::endl;
-	    }
-	    halt = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
-	    if(numberOfMDs == 5) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
-	      halt = true;
-              ofs << "Asserting overall convergence for numberOfMDs = 5." << std::endl;
 	    }
 	    */
 
@@ -1180,9 +1191,9 @@ namespace cfdsim {
       return false;
     }
 
-    double variance =  pow(previousEstimate - meanFlowRate, 2);
+    std::cout << "previousEstimate = " << previousEstimate << ", meanFlowRate = " << meanFlowRate << std::endl;
 
-    double normalisedChange = std::sqrt(variance / meanFlowRate);
+    double normalisedChange = std::abs(previousEstimate - meanFlowRate) / meanFlowRate;
 
     ofs << "The overall normalised change is " << normalisedChange << std::endl;
 
