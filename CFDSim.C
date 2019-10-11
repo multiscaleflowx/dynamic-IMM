@@ -1131,6 +1131,10 @@ namespace cfdsim {
       // Read how many times the program should continue with the current number of MD sims.
       iss >> continue_counter;
       std::cout << "continue_counter = " << continue_counter << std::endl;
+      if((continue_counter != 0) && (continue_counter != (nSamples-1))){
+	std::cout << "ERROR: (continue_counter = " << continue_counter <<") != ((nSamples-1) = " << (nSamples-1)  << ")" << std::endl;
+	MPI_Abort(MPI_COMM_WORLD, 999);
+      }
 
       // Copy all but the first line of the file agenda.txt
       // to new_agenda.txt.
