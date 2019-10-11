@@ -114,8 +114,7 @@ namespace cfdsim {
     //void calculateBodyForces(label, label, std::map<std::string, std::map<std::string, double>>);
 
     void receiveData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>&,
-		     int,
-		     bool);
+		     int);
 
     void sendData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>&,
 		  int);

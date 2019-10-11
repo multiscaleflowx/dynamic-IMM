@@ -464,8 +464,8 @@ namespace cfdsim {
 					 std::vector<int>& nodeDistribution) {
     std::cout << "Entering calculateNodeDistribution" << std::endl;
     int nMDs = nodeDistribution.size();
-    std::cout << "calculateNodeDistribution: nMDs = " << nMDs << ", nNodes = " << nNodes << std::endl;
-    if(nMDs > nNodes) { // Arbitrarily assigne 1 node to each MD.
+    std::cout << "calculateNodeDistribution: nMDs = " << nMDs << ", nMDNodes = " << nNodes << std::endl;
+    if(nMDs > nNodes) { // Arbitrarily assign 1 node to each MD.
       for(auto& x : nodeDistribution) {
 	x = 1;
       }
@@ -505,6 +505,7 @@ namespace cfdsim {
       Info << nl << "applying initial flow resistance adjustments" << endl;
 
       for(label i = 0; i < nMicro_; i++) {
+	ofs << "mDot_[" << i << "] = " << mDot_[i] << std::endl;
 	if(mDot_[i] != 0.0) {
 	  k_[i] = f_[i]/mDot_[i];
 
@@ -512,6 +513,10 @@ namespace cfdsim {
 	  kIs_[i][iter_][1] = f_[i];
 	  kIs_[i][iter_][2] = 0.1*mDot_[i]; //mDotError_[i] //*** need to pass flow rate error
 	}
+	ofs << "kIs_[" << i << "][" << iter_ << "][0] = " << kIs_[i][iter_][0] << std::endl;
+	ofs << "kIs_[" << i << "][" << iter_ << "][1] = " << kIs_[i][iter_][1] << std::endl;
+	ofs << "kIs_[" << i << "][" << iter_ << "][2] = " << kIs_[i][iter_][2] << std::endl;
+	ofs << "k_[" << i << "] = " << k_[i] << std::endl;
       }
     }
     else {
@@ -540,6 +545,10 @@ namespace cfdsim {
 
 	k_[i] = sumTop/sumBottom;
 
+	ofs << "kIs_[" << i << "][" << iter_ << "][0] = " << kIs_[i][iter_][0] << std::endl;
+	ofs << "kIs_[" << i << "][" << iter_ << "][1] = " << kIs_[i][iter_][1] << std::endl;
+	ofs << "kIs_[" << i << "][" << iter_ << "][2] = " << kIs_[i][iter_][2] << std::endl;
+	ofs << "k_[" << i << "] = " << k_[i] << std::endl;
 	//Calculate ki errors here //****
       }
     }
@@ -621,6 +630,7 @@ namespace cfdsim {
     for(label i = 0; i < nMicro_; i++) {
       f_old_[i] = f_[i];
       f_[i] = (F_ + phi_[i]/rhoN_);
+      ofs << "f_[" << i << "] = " << f_[i] << " = " << F_ << " + " << phi_[i] << "/" << rhoN_ << std::endl;
 
       if(k_[i] != 0.0) {
 	mDotMacro_[i] = f_[i]/k_[i];
@@ -656,7 +666,7 @@ namespace cfdsim {
     }
   }
 
- //TODO: order these correctly.
+  //TODO: order these correctly.
   void CFDSim::calculateAverages() {
     std::cout << "Entering calculateAverages" << std::endl;
     for(auto& ifn : interfaceNames) {
@@ -684,8 +694,7 @@ namespace cfdsim {
   }
 
   void CFDSim::receiveData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>& interfaces,
-			   int step,
-			   bool saveData) {
+			   int step) {
     std::cout << "Entering receiveData" << std::endl;
 
     double t = step*time_dt;
@@ -703,9 +712,7 @@ namespace cfdsim {
       for(std::string var : inVars) {
 	double val = interface->fetch<double>(var);
 	double cfdMassFlowRate = massFlowRateConversionFactor * val;
-	if(saveData) {
-	  inVarValuesVec[ifn][var].push_back(cfdMassFlowRate);
-	}
+	inVarValuesVec[ifn][var].push_back(cfdMassFlowRate);
 	std::cout << "CFD in t = " << t << " " << ifn << ' ' << var << ' ' << cfdMassFlowRate << std::endl;
       }
 
@@ -860,7 +867,23 @@ namespace cfdsim {
 	if((timestep % NEVERY) == 0) {
 	  std::cout << "run:equib:NEVERY: timestep = " << timestep << std::endl;
 
-	  receiveData(interfaces, timestep, false);
+	  receiveData(interfaces, timestep);
+
+          sampleCount++;
+          if(sampleCount == nSamples) {
+	    calculateAverages();
+	    // This relies on the regions being correctly ordered.
+	    sort(regions.begin(), regions.end());
+	    int32_t j = 0;
+	    for(Region r : regions) {
+	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
+	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")].back();
+	      std::cout << "equib: mDot_[" << j << "] = " << mDot_[j] << std::endl;
+	      j++;
+	    }
+	    clearAccumulators();
+	    sampleCount = 0;
+	  }
 
 	  // The initial force is set in the LAMMPS script.
 	  sendData(interfaces, timestep);
@@ -873,7 +896,6 @@ namespace cfdsim {
 	timestep++;
       }
 
-      bool hasConverged = (numberOfMDs == 0); // Do not want to test for convergence if the are no MDs.
       double meanFlowRate;
       for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
 	//std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
@@ -909,7 +931,7 @@ namespace cfdsim {
 	    }
 	  }
 
-	  receiveData(interfaces, timestep, true);
+	  receiveData(interfaces, timestep);
 
           sampleCount++;
 	  //std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
