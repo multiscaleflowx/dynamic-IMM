@@ -75,7 +75,7 @@ namespace cfdsim {
     scalarField phi_; // momentum flux corrector terms Phi_i
 
   public:
-    CFDSim(const char*, const char*, const char*, const IOdictionary&, const IOdictionary&);
+    CFDSim(const char*, const char*, const char*, const IOdictionary&);
 
     void initialise(int);
 

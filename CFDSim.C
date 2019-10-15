@@ -26,36 +26,35 @@ namespace cfdsim {
   CFDSim::CFDSim(const char* exe,
 		 const char* name,
 		 const char* openfoamCase,
-		 const IOdictionary& macroDict,
-		 const IOdictionary& microDict): exeName(exe),cfdFileName(name), caseName(openfoamCase) {
+		 const IOdictionary& immDict): exeName(exe),cfdFileName(name), caseName(openfoamCase) {
     readConfigFile();
 
-    const double length = readScalar(macroDict.lookup("length"));
-    const double hEnd = readScalar(macroDict.lookup("hEnd"));
-    const double hNeck = readScalar(macroDict.lookup("hNeck"));
+    const double length = readScalar(immDict.lookup("length"));
+    const double hEnd = readScalar(immDict.lookup("hEnd"));
+    const double hNeck = readScalar(immDict.lookup("hNeck"));
     channel = Channel(length, hEnd, hNeck);
 
     std::string solver_output("solver_output");
     solver_output.append(std::to_string(startTime));
     ofs.open(solver_output); // Where to put a copy of the output from the solver.
 
-    F_ = readScalar(macroDict.lookup("F"));
+    F_ = readScalar(immDict.lookup("F"));
     std::cout << "Read in: F_ = " << F_ << std::endl;
-    rhoN_ = readScalar(macroDict.lookup("rhoN"));
+    rhoN_ = readScalar(immDict.lookup("rhoN"));
 
-    nIter_= readLabel(macroDict.lookup("nSolverCalls"));
-    nSamples = readLabel(macroDict.lookup("numberOfSamplesToAverageOver"));
-    acceptableError = readScalar(macroDict.lookup("acceptableError"));
-    tolerance = readScalar(macroDict.lookup("tolerance"));
+    nIter_= readLabel(immDict.lookup("nSolverCalls"));
+    nSamples = readLabel(immDict.lookup("numberOfSamplesToAverageOver"));
+    acceptableError = readScalar(immDict.lookup("acceptableError"));
+    tolerance = readScalar(immDict.lookup("tolerance"));
 
-    molMass = readScalar(microDict.lookup("molMass"));
+    molMass = readScalar(immDict.lookup("molMass"));
 
-    lengthOfRegion = readScalar(microDict.lookup("lengthOfRegion"));
-    widthOfRegion = readScalar(microDict.lookup("widthOfRegion"));
+    lengthOfRegion = readScalar(immDict.lookup("lengthOfRegion"));
+    widthOfRegion = readScalar(immDict.lookup("widthOfRegion"));
 
-    time_dt = readScalar(microDict.lookup("microTimeStep"));
-    nEquilibration = readLabel(microDict.lookup("numberOfEquilibrationSteps"));
-    nStepsBetweenSamples = readLabel(microDict.lookup("numberOfStepsBetweenSamples"));
+    time_dt = readScalar(immDict.lookup("microTimeStep"));
+    nEquilibration = readLabel(immDict.lookup("numberOfEquilibrationSteps"));
+    nStepsBetweenSamples = readLabel(immDict.lookup("numberOfStepsBetweenSamples"));
 
     // The number of time steps used to compute an average flow rate.
     nMeasurement = nSamples * nStepsBetweenSamples;

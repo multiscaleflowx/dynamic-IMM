@@ -23,25 +23,16 @@ int main(int argc, char ** argv) {
 #include "setRootCase.H"
 #include "createTime.H"
 
-  IOdictionary macroDict = (IOobject("macroDict",
-				     "",
-				     runTime, 
-				     IOobject::MUST_READ,
-				     IOobject::NO_WRITE,
-				     false
-				     )
-			    );
+  IOdictionary immDict = (IOobject("immDict",
+				   "",
+				   runTime, 
+				   IOobject::MUST_READ,
+				   IOobject::NO_WRITE,
+				   false
+				   )
+			  );
 
-  IOdictionary microDict = (IOobject("microDict",
-				     "",
-				     runTime, 
-				     IOobject::MUST_READ,
-				     IOobject::NO_WRITE,
-				     false
-				     )
-			    );
-
-  auto sim = cfdsim::CFDSim(argv[0], "in.CFD", argv[2], macroDict, microDict);
+  auto sim = cfdsim::CFDSim(argv[0], "in.CFD", argv[2], immDict);
   sim.run();
   
   return 0;
