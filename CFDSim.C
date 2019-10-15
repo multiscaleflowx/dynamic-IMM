@@ -38,6 +38,8 @@ namespace cfdsim {
     solver_output.append(std::to_string(startTime));
     ofs.open(solver_output); // Where to put a copy of the output from the solver.
 
+    // TODO: Abprt if any keyword is not found in the dictionary.
+
     F_ = readScalar(immDict.lookup("F"));
     std::cout << "Read in: F_ = " << F_ << std::endl;
     rhoN_ = readScalar(immDict.lookup("rhoN"));
@@ -58,43 +60,6 @@ namespace cfdsim {
 
     // The number of time steps used to compute an average flow rate.
     nMeasurement = nSamples * nStepsBetweenSamples;
-  }
-
-  void CFDSim::initialise(int nMicro_) {
-    Info << nl << "Initialising macro solver" << nl << endl;
-
-    s_.setSize(nMicro_, 0.0);
-    mDot_.setSize(nMicro_, 0.0);
-    k_.setSize(nMicro_, 1.0);
-    f_.setSize(nMicro_, F_); // F_ is the correct initial value for f_.
-    f_old_.setSize(nMicro_, 0.0);
-    phi_.setSize(nMicro_, 0.0);
-    phiCoeffs_.setSize(nMicro_, 0.0);
-    kIs_.setSize(nMicro_);
-
-    std::set<double> normalisedPositions;
-    std::cout << "normalisedPositions:";
-    for(Region r : regions) {
-      normalisedPositions.insert(r.sNorm);
-      std::cout << " " << r.sNorm;
-    }
-    std::cout << std::endl;
-
-    // Compute the heights of the channel for the various regions.
-    label i = 0;
-    for(double s : normalisedPositions) {
-      s_[i] = s*channel.length();
-      std::cout << "s_[" << i << "] = " << s_[i] << std::endl;
-      i++;
-    }
-
-    forAll(kIs_, i) {
-      kIs_[i].setSize(nIter_);
-      forAll(kIs_[i], j) {
-	kIs_[i][j].setSize(3, 0.0);
-      }
-    }
-    Info << nl << "Macro solver initialised" << nl << endl;
   }
 
   void CFDSim::readConfigFile() {
@@ -473,7 +438,7 @@ namespace cfdsim {
       displacements[i] = i*nameLength;
     }
     MPI_Allgatherv(processorName, nameLength, MPI_CHAR, processorNames,
-		   recvCounts, displacements, MPI_CHAR, comm);
+                   recvCounts, displacements, MPI_CHAR, comm);
 
     std::set<std::string> names;
     for(int i = 0; i < size; i++) {
@@ -516,180 +481,6 @@ namespace cfdsim {
 
     std::cout << "Leaving calculateNodeDistribution" << std::endl;
     return true;
-  }
-
-  void CFDSim::solve(label iter_, label nMicro_) {
-    scalar pi = constant::mathematical::pi;
-
-    Info << nl << "iter:" << iter_
-	 << " solving macro equation"
-	 << endl;
-
-    // 1. set k_i's from current MD simulation data
-
-    if(iter_ == 0) {
-      Info << nl << "applying initial flow resistance adjustments" << endl;
-
-      for(label i = 0; i < nMicro_; i++) {
-	ofs << "mDot_[" << i << "] = " << mDot_[i] << std::endl;
-	if(mDot_[i] != 0.0) {
-	  k_[i] = f_[i]/mDot_[i];
-
-	  kIs_[i][iter_][0] = mDot_[i];
-	  kIs_[i][iter_][1] = f_[i];
-	  kIs_[i][iter_][2] = 0.1*mDot_[i]; //mDotError_[i] //*** need to pass flow rate error
-	}
-	ofs << "kIs_[" << i << "][" << iter_ << "][0] = " << kIs_[i][iter_][0] << std::endl;
-	ofs << "kIs_[" << i << "][" << iter_ << "][1] = " << kIs_[i][iter_][1] << std::endl;
-	ofs << "kIs_[" << i << "][" << iter_ << "][2] = " << kIs_[i][iter_][2] << std::endl;
-	ofs << "k_[" << i << "] = " << k_[i] << std::endl;
-      }
-    }
-    else {
-      Info << nl << "Calculating k_i's" << nl << endl;
- 
-      for(label i = 0; i < nMicro_; i++) {
-	kIs_[i][iter_][0] = mDot_[i];
-	kIs_[i][iter_][1] = f_[i];
-	kIs_[i][iter_][2] = 0.1*mDot_[i]; //mDotError_[i] //*** need to pass flow rate error
-
-	// find k_i's
-    
-	scalar sumTop = 0.0;
-	scalar sumBottom = 0.0;
-
-	for (label j=0; j < nIter_; j++) {
-	  if(j < iter_) {
-	    scalar mDot = kIs_[i][j][0];
-	    scalar force = kIs_[i][j][1];
-	    scalar mDotError = kIs_[i][j][2];
-
-	    sumTop += force*force/(mDotError*mDotError);
-	    sumBottom += force*mDot/(mDotError*mDotError);
-	  }
-	}
-
-	k_[i] = sumTop/sumBottom;
-
-	ofs << "kIs_[" << i << "][" << iter_ << "][0] = " << kIs_[i][iter_][0] << std::endl;
-	ofs << "kIs_[" << i << "][" << iter_ << "][1] = " << kIs_[i][iter_][1] << std::endl;
-	ofs << "kIs_[" << i << "][" << iter_ << "][2] = " << kIs_[i][iter_][2] << std::endl;
-	ofs << "k_[" << i << "] = " << k_[i] << std::endl;
-	//Calculate ki errors here //****
-      }
-    }
-
-    // 2. set LU matrix (this is the hardest and trickiest part)
-
-    std::cout << "Creating matrix" << std::endl;
-    simpleMatrix<scalar> luMatrix(nMicro_+1, 0.0, 0.0);
-
-    // column configuration
-
-    // phiCoeff's... mbar
-
-    label r = 0; // row counter
-
-    label c = 0; // column pusher
-
-    // overall pressure drop integral equation
-
-    double L_ = channel.length();
-
-    luMatrix[r][c+0] = L_;
-
-    for(label j=1; j <= (nMicro_-1)/2; j++) {
-      luMatrix[r][c+(2*j)-1] = (L_/(2*pi*j))*(1-Foam::cos(2*pi*j));
-      luMatrix[r][c+(2*j)+1-1] = L_*(Foam::sin(2*pi*j))/(2*pi*j);
-    }
-
-    luMatrix.source()[r]=0.0;
-
-    r++;
-
-    // flow response equations
-
-    for(label i = 0; i < nMicro_; i++) {
-      c = nMicro_;
-
-      luMatrix[r][c]=-rhoN_*k_[i];
-
-      c = 0;
-
-      luMatrix[r][c+0]=1;
-
-      for(label j=1; j <= (nMicro_-1)/2; j++) {
-	luMatrix[r][c+(2*j)-1] = Foam::sin(2*pi*s_[i]*j/L_);
-	luMatrix[r][c+(2*j)+1-1] = Foam::cos(2*pi*s_[i]*j/L_);
-      }
-
-      luMatrix.source()[r]=-rhoN_*F_;
-
-      r++;
-    }
-
-    //... done
-
-    // 3. solve matrix
-    scalarField M = luMatrix.LUsolve();
-
-    // 4. set new phi's
-
-    for(label i = 0; i < nMicro_; i++) {
-      phiCoeffs_[i] = M[i];
-    }
-
-    for(label i = 0; i < nMicro_; i++) {
-      phi_[i] = phiCoeffs_[0];
-
-      for(label j=1; j <= (nMicro_-1)/2; j++) {
-	phi_[i] += phiCoeffs_[(2*j)-1]*Foam::sin(2*pi*s_[i]*j/L_);
-	phi_[i] += phiCoeffs_[(2*j)+1-1]*Foam::cos(2*pi*s_[i]*j/L_);
-      }
-    }
-
-    //5. Set new forces
-
-    List<scalar> mDotMacro_(nMicro_,0.0); //predicted Mass Flow Rates
-
-    std::cout << "Setting new forces" << std::endl;
-    for(label i = 0; i < nMicro_; i++) {
-      f_old_[i] = f_[i];
-      f_[i] = (F_ + phi_[i]/rhoN_);
-      ofs << "f_[" << i << "] = " << f_[i] << " = " << F_ << " + " << phi_[i] << "/" << rhoN_ << std::endl;
-
-      if(k_[i] != 0.0) {
-	mDotMacro_[i] = f_[i]/k_[i];
-      }
-    }
-
-    // next iteration
-
-    //iter_++; // important
-
-    Info << nl << "Statistics" << endl;
-    Info << nl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
-	 << "\t phi_i \t phiCoeffs_i \t"
-	 << endl;
-
-    for(label i = 0; i < nMicro_; i++) {
-      Info << i << "\t" << s_[i] << "\t" << f_[i] << "\t" << mDot_[i]
-	   << "\t" << mDotMacro_[i] << "\t" << k_[i] << "\t" << phi_[i]
-	   << "\t" << phiCoeffs_[i]
-	   << endl;
-    }
-
-    ofs << std::endl << "Statistics" << std::endl;
-    ofs << std::endl << "id \t s_i \t f_i \t mDotMicro_i \t mDotMacro_i \t k_i"
-        << "\t phi_i \t phiCoeffs_i \t"
-        << std::endl;
-
-    for(label i = 0; i < nMicro_; i++) {
-      ofs << i << "\t" << s_[i] << "\t" << f_[i] << "\t" << mDot_[i]
-	  << "\t" << mDotMacro_[i] << "\t" << k_[i] << "\t" << phi_[i]
-	  << "\t" << phiCoeffs_[i]
-	  << std::endl;
-    }
   }
 
   //TODO: order these correctly.
@@ -1060,102 +851,6 @@ namespace cfdsim {
     std::cout << "Leaving run" << std::endl;
   }
 
-  /*
-    The CFD class must implement a method to replace that given below.
-    The implementation in this file is provided only to allow testing of the rest of the code.
-
-    The function must return a bool indicating whether new simulations are needed or existing
-    ones are no longer needed.
-
-    This function populates two vectors: add and remove.
-    When the function returns these 'add' must contain the indices of any new
-    simulations/interfaces that are required and 'remove' must contain the indices of
-    any simulations/interfaces that are no longer required.
-  */
-  bool CFDSim::changesRequired(int t, int iter) {
-    std::cout << "Entering changesRequired" << std::endl;
-    std::ifstream agendaInFile("agenda.txt");
-    std::ofstream agendaOutFile("new_agenda.txt");
-    bool change = false;
-
-    if(continue_counter <= 0) {
-      // Get the first line of the file agenda.txt.
-      std::string line;
-      std::getline(agendaInFile, line);
-      std::cout << "AGENDA: " << line << std::endl;
-      std::istringstream iss(line);
-
-      std::string token;
-      iss >> token;
-      if(token != std::string("continue")) {
-
-	// Collect the descriptions of the new MD simulations to be created.
-	if(token == std::string("add")) {
-	  // Add the new regions.
-	  while(iss >> token) {
-	    if(token == std::string("subtract"))
-	      break;
-	    assert(token == "{");
-	    iss >> token;
-	    assert(std::stoi(token) > maxIndex);
-	    Region r;
-	    r.interfaceName = token; // Simulation index
-	    iss >> token;
-	    r.sNorm = std::stod(token);
-	    iss >> token;
-	    assert(token == "}");
-	    add.emplace_back(r);
-	    maxIndex++;
-	    change = true;
-	  }
-	}
-
-	while(iss >> token) {
-	  // Collect the indices of the MD simulations that are no longer needed.
-	  assert(token == "{");
-	  iss >> token;
-	  Region r;
-	  r.interfaceName = token; // Simulation index
-	  iss >> token;
-	  r.sNorm = std::stod(token);
-	  iss >> token;
-	  assert(token == "}");
-	  remove.emplace_back(r);
-	  // Do not change max index as indices are never reused.
-	  change = true;
-	}
-
-      }
-
-      // Read how many times the program should continue with the current number of MD sims.
-      iss >> continue_counter;
-      std::cout << "continue_counter = " << continue_counter << std::endl;
-      if((continue_counter != 0) && (continue_counter != (nSamples-1))){
-	std::cout << "ERROR: (continue_counter = " << continue_counter <<") != ((nSamples-1) = " << (nSamples-1)  << ")" << std::endl;
-	MPI_Abort(MPI_COMM_WORLD, 999);
-      }
-
-      // Copy all but the first line of the file agenda.txt
-      // to new_agenda.txt.
-      while(std::getline(agendaInFile, line)) {
-	agendaOutFile << line << std::endl;
-      }
-      std::cout << "Closing agenda.txt" << std::endl;
-      agendaInFile.close();
-      std::cout << "Closing new_agenda.txt" << std::endl;
-      agendaOutFile.close();
-
-      // Update agenda.txt.
-      std::cout << "Moving new_agenda.txt" << std::endl;
-      std::system("mv new_agenda.txt agenda.txt");
-    }
-
-    continue_counter--;
-    //std::cout << "After decrement continue_counter = " << continue_counter << std::endl;
-
-    std::cout << "Leaving changesRequired: change = " << change << std::endl;
-    return change;
-  }
 
   bool CFDSim::converged(int nMicro_, double& mean) {
     if(nMicro_ == 0) {
