@@ -1,6 +1,8 @@
 Channel.C
 Region.C
 CFDSim.C
+CFDSim_solver.C
+CFDSim_control.C
 imm.C
 
 EXE = $(FOAM_APPBIN)/cfdSim
