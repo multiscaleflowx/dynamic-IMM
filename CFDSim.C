@@ -633,8 +633,6 @@ namespace cfdsim {
     std::cout << std::endl;
 
     int nNodes;
-    nNodes = countNodes(MPI_COMM_WORLD);
-    std::cout << "B: nNodes = " << nNodes << std::endl;
     nNodes = countNodes();
     std::cout << "A: nNodes = " << nNodes << std::endl;
     int nMDNodes = nNodes-1;
