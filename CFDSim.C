@@ -38,7 +38,7 @@ namespace cfdsim {
     solver_output.append(std::to_string(startTime));
     ofs.open(solver_output); // Where to put a copy of the output from the solver.
 
-    // TODO: Abprt if any keyword is not found in the dictionary.
+    // TODO: Abort if any keyword is not found in the dictionary.
 
     F_ = readScalar(immDict.lookup("F"));
     std::cout << "Read in: F_ = " << F_ << std::endl;
@@ -752,7 +752,6 @@ namespace cfdsim {
 	    if(hasConverged) {
 	      terminate = true;
 	    }
-	    hasConvergedOverall = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
 	    /*
 	    if(numberOfMDs == 5) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
 	      hasConvergedOverall = true;
@@ -790,6 +789,7 @@ namespace cfdsim {
 	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	    solve(iter_, numberOfMDs);
 	    hasConverged = converged(numberOfMDs, meanFlowRate);
+	    hasConvergedOverall = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
 	    /*
 	    if(iter_ == 2) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
 	      hasConverged = true;
