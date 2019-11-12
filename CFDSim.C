@@ -717,12 +717,71 @@ namespace cfdsim {
 	timestep++;
       }
 
+      std::cout << "run: may start measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
       double meanFlowRate;
       for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
-	//std::cout << "run:measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
+	if(i == 0) {
+	  std::cout << "run:start measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
+	}
 	if((timestep % NEVERY) == 0) {
-	  //std::cout << "run:measurement:NEVERY: timestep = " << timestep << ", hasConverged = " << hasConverged << ", iter_ = " << iter_ << std::endl;
-	  if(hasConverged || iter_ == (nIter_ - 1)) {
+	  std::cout << "run:measurement:NEVERY: timestep = " << timestep << ", hasConverged = " << hasConverged << ", iter_ = " << iter_ << std::endl;
+
+	  receiveData(interfaces, timestep);
+
+          sampleCount++;
+	  //std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
+          if(sampleCount == nSamples) {
+	    //std::cout << "AVERAGE" << std::endl;
+	    calculateAverages();
+	    // This relies on the regions being correctly ordered.
+	    sort(regions.begin(), regions.end());
+	    int32_t j = 0;
+	    for(Region r : regions) {
+	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
+	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")].back();
+	      std::cout << "mDot_[" << j << "] = " << mDot_[j] << std::endl;
+	      j++;
+	    }
+	    clearAccumulators();
+	    sampleCount = 0;
+
+	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
+	    solve(iter_, numberOfMDs);
+	    hasConverged = hasConverged || (converged(numberOfMDs, meanFlowRate) && (iter_ > 0));
+	    hasConvergedOverall = (iter_ > 0) && convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
+	    /*
+	    if(iter_ == 2) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
+	      hasConverged = true;
+	      ofs << "Asserting convergence at iter_ = 2." << std::endl;
+	      std::cout << "Asserting convergence at iter_ = 2." << std::endl;
+	    }
+	    */
+
+	    int32_t posn = 0;
+	    for(std::string ifn : interfaceNames) {
+	      for(std::string v : outVars) {
+		if(v == std::string("force")) {
+		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
+		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
+		  //double deltaF_ = f_[posn] - f_old_[posn];
+		  //double deltaF_ = f_old_[posn] - f_[posn];
+		  double deltaF_ = f_[posn];
+		  outVarValues[ifn][v] = deltaF_;
+		  std::cout << "Force delta set to " << deltaF_ << std::endl;
+		}
+		else {
+		  std::cout << "Unexpected variable '" << v << "'." << std::endl;
+		  MPI_Abort(MPI_COMM_WORLD, 999);
+		}
+	      }
+	      posn++;
+	    }
+          }
+	  //std::cout << "Outputs set" << std::endl;
+
+          sendData(interfaces, timestep);
+
+	  if((i == (nMeasurement-1)) && (hasConverged || iter_ == (nIter_ - 1))) {
 	    if(changeMDs(timestep, iter_)) {
 	      int newNumberOfMDs = updatedRegions.size();
 	      std::cout << "timestep = " << timestep << ": newNumberOfMDs = " << newNumberOfMDs << std::endl;
@@ -764,61 +823,6 @@ namespace cfdsim {
 	      }
 	    }
 	  }
-
-	  receiveData(interfaces, timestep);
-
-          sampleCount++;
-	  //std::cout << "SAMPLE_COUNT = " << sampleCount << ", i = " << i << ", iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
-          if(sampleCount == nSamples) {
-	    //std::cout << "AVERAGE" << std::endl;
-	    calculateAverages();
-	    // This relies on the regions being correctly ordered.
-	    sort(regions.begin(), regions.end());
-	    int32_t j = 0;
-	    for(Region r : regions) {
-	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
-	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")].back();
-	      std::cout << "mDot_[" << j << "] = " << mDot_[j] << std::endl;
-	      j++;
-	    }
-	    clearAccumulators();
-	    sampleCount = 0;
-
-	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
-	    solve(iter_, numberOfMDs);
-	    hasConverged = converged(numberOfMDs, meanFlowRate);
-	    hasConvergedOverall = convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
-	    /*
-	    if(iter_ == 2) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
-	      hasConverged = true;
-	      ofs << "Asserting convergence at iter_ = 2." << std::endl;
-	      std::cout << "Asserting convergence at iter_ = 2." << std::endl;
-	    }
-	    */
-
-	    int32_t posn = 0;
-	    for(std::string ifn : interfaceNames) {
-	      for(std::string v : outVars) {
-		if(v == std::string("force")) {
-		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
-		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
-		  //double deltaF_ = f_[posn] - f_old_[posn];
-		  //double deltaF_ = f_old_[posn] - f_[posn];
-		  double deltaF_ = f_[posn];
-		  outVarValues[ifn][v] = deltaF_;
-		  std::cout << "Force delta set to " << deltaF_ << std::endl;
-		}
-		else {
-		  std::cout << "Unexpected variable '" << v << "'." << std::endl;
-		  MPI_Abort(MPI_COMM_WORLD, 999);
-		}
-	      }
-	      posn++;
-	    }
-          }
-	  //std::cout << "Outputs set" << std::endl;
-
-          sendData(interfaces, timestep);
 
 	  double val = double(terminate);
 	  double max_val; // To keep MPI_Allreduce happy. It will be set to the value of val.

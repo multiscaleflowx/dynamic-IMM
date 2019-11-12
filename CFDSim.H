@@ -46,7 +46,6 @@ namespace cfdsim {
     std::vector<Region> remove;
     Channel channel;
     std::ofstream ofs;
-    int32_t continue_counter = 0;
 
     label nIter_; // Number of iterations.
     scalar L_; // Length of macro channel.
