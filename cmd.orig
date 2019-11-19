@@ -1,1 +1,1 @@
-aprun -n 1 cfdSim  -case channel > output1
+aprun -n 1 cfdSim  -case channel > output0

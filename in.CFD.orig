@@ -1,5 +1,2 @@
-startAtIteration 1
-push force
-fetch mass_flow_x
 regions
 maxIndex 0

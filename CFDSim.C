@@ -34,10 +34,6 @@ namespace cfdsim {
     const double hNeck = readScalar(immDict.lookup("hNeck"));
     channel = Channel(length, hEnd, hNeck);
 
-    std::string solver_output("solver_output");
-    solver_output.append(std::to_string(startTime));
-    ofs.open(solver_output); // Where to put a copy of the output from the solver.
-
     // TODO: Abort if any keyword is not found in the dictionary.
 
     F_ = readScalar(immDict.lookup("F"));
@@ -60,44 +56,30 @@ namespace cfdsim {
 
     // The number of time steps used to compute an average flow rate.
     nMeasurement = nSamples * nStepsBetweenSamples;
+
+    wordList pushVars(immDict.lookup("push"));
+    forAll(pushVars, v) {
+      word vn = pushVars[v];
+      std::ostringstream out;
+      out << vn;
+      std::cout << "pushVar: " << out.str() << std::endl;
+      outVars.insert(out.str());
+    }
+
+    wordList fetchVars(immDict.lookup("fetch"));
+    forAll(fetchVars, v) {
+      word vn = fetchVars[v];
+      std::ostringstream in;
+      in << vn;
+      std::cout << "fetchVar: " << in.str() << std::endl;
+      inVars.insert(in.str());
+    }
   }
 
   void CFDSim::readConfigFile() {
     std::cout << "Entering readConfigFile" << std::endl;
     std::ifstream infs(cfdFileName);
     std::string keyWord, line, s;
-
-    infs >> keyWord;
-    if(keyWord != "startAtIteration") {
-      std::cout << "ERROR: '" << keyWord << "' found where 'startAtIteration' was expected." << std::endl;
-      // Make sure program terminates even in MPMD mode.
-      MPI_Abort(MPI_COMM_WORLD, 999);
-    }
-    infs >> startTime;
-
-    infs >> keyWord;
-    if(keyWord != "push") {
-      std::cout << "ERROR: '" << keyWord << "' found where 'push' was expected." << std::endl;
-      // Make sure program terminates even in MPMD mode.
-      MPI_Abort(MPI_COMM_WORLD, 999);
-    }
-    getline(infs, line);
-    std::istringstream str_stream2(line);
-    while(str_stream2 >> s) {
-      outVars.insert(s);
-    }
-
-    infs >> keyWord;
-    if(keyWord != "fetch") {
-      std::cout << "ERROR: '" << keyWord << "' found where 'fetch' was expected." << std::endl;
-      // Make sure program terminates even in MPMD mode.
-      MPI_Abort(MPI_COMM_WORLD, 999);
-    }
-    getline(infs, line);
-    std::istringstream str_stream3(line);
-    while(str_stream3 >> s) {
-      inVars.insert(s);
-    }
 
     // Initially OpenFOAM will be run alone and no interfaces will be needed.
     // Once an MD simulation is required OpenFOAM will be restarted with interfaces
@@ -138,18 +120,12 @@ namespace cfdsim {
     std::cout << "Leaving readConfigFile" << std::endl;
   }
 
-  void CFDSim::writeConfigFile(int t) {
+  void CFDSim::writeConfigFile() {
     std::cout << "Entering writeConfigFile" << std::endl;
     std::ifstream cfdInFS(cfdFileName);
     std::string newCfdFileName("new_"+cfdFileName);
     std::ofstream cfdOutFS(newCfdFileName);
     std::string cfdline;
-    std::getline(cfdInFS, cfdline); // Discard and replace.
-    cfdOutFS << "startAtIteration " << t+1 << std::endl;
-    std::getline(cfdInFS, cfdline);
-    cfdOutFS << cfdline <<std::endl; // Write push vars.
-    std::getline(cfdInFS, cfdline);
-    cfdOutFS << cfdline <<std::endl; // Write fetch vars.
 
     cfdOutFS << "regions";
     for(auto r : updatedRegions) {
@@ -166,7 +142,7 @@ namespace cfdsim {
     std::cout << "Leaving writeConfigFile" << std::endl;
   }
 
-  void CFDSim::writeCmdFile(std::vector<int> nodeDistribution, std::string t) {
+  void CFDSim::writeCmdFile(std::vector<int> nodeDistribution) {
     std::cout << "Entering writeCmdFile" << std::endl;
     std::ofstream outfile("cmd");
     outfile << "aprun -n 1 " << exeName << " -case " << caseName;
@@ -176,7 +152,7 @@ namespace cfdsim {
       outfile << " :  -n " << p << " mui-lmp -in in.MD" << r.interfaceName;
       i++;
     }
-    outfile << " > output" << t << std::endl;
+    outfile << " > output" << nodeDistribution.size() << std::endl;
     outfile.close();
     std::cout << "Leaving writeCmdFile" << std::endl;
   }
@@ -207,8 +183,7 @@ namespace cfdsim {
 				   std::string niterM1,
 				   std::string nequib,
 				   std::string nevery,
-				   std::string nsteps,
-				   std::string startTime) {
+				   std::string nsteps) {
     std::cout << "Entering createInitialMDFile" << std::endl;
     std::ifstream infs("initial_MD_template");
     std::ofstream outfs("in.MD" + r.interfaceName);
@@ -258,10 +233,7 @@ namespace cfdsim {
       while((index = line.find("@nsteps")) != std::string::npos) {
 	line.replace(index, 7, nsteps);
       }
-      while((index = line.find("@t")) != std::string::npos) {
-        line.replace(index, 2, startTime);
-      }
-       while((index = line.find("@l")) != std::string::npos) {
+      while((index = line.find("@l")) != std::string::npos) {
         line.replace(index, 2, l_str);
       }
        while((index = line.find("@w")) != std::string::npos) {
@@ -277,8 +249,7 @@ namespace cfdsim {
 				     std::string niterM1,
 				     std::string nequib,
 				     std::string nevery,
-				     std::string nsteps,
-				     std::string startTime) {
+				     std::string nsteps) {
     std::cout << "Entering createRestartedMDFile" << std::endl;
     std::ifstream infs("restarted_MD_template");
     std::ofstream outfs("in.MD" + r.interfaceName);
@@ -328,10 +299,7 @@ namespace cfdsim {
       while((index = line.find("@nsteps")) != std::string::npos) {
 	line.replace(index, 7, nsteps);
       }
-      while((index = line.find("@t")) != std::string::npos) {
-        line.replace(index, 2, startTime);
-      }
-       while((index = line.find("@l")) != std::string::npos) {
+      while((index = line.find("@l")) != std::string::npos) {
         line.replace(index, 2, l_str);
       }
        while((index = line.find("@w")) != std::string::npos) {
@@ -374,8 +342,7 @@ namespace cfdsim {
 			      std::to_string(nIter_ - 1),
 			      std::to_string(nEquilibration),
 			      std::to_string(nStepsBetweenSamples),
-			      std::to_string(nMeasurement),
-			      std::to_string(t));
+			      std::to_string(nMeasurement));
       }
 
       // Add the new interface names and create initial restart files.
@@ -394,14 +361,13 @@ namespace cfdsim {
 			    std::to_string(nIter_ - 1),
 			    std::to_string(nEquilibration),
 			    std::to_string(nStepsBetweenSamples),
-			    std::to_string(nMeasurement),
-			    std::to_string(t));
+			    std::to_string(nMeasurement));
 
 	//std::cout << "Creating force files for new simulations." << std::endl;
 	//createMDForceFile(r, mdF_str, "0");	
       }
 
-      writeConfigFile(t);
+      writeConfigFile();
 
       change = true;
     }
@@ -641,7 +607,7 @@ namespace cfdsim {
 
     bool halt = false;
     bool terminate = false;
-    int64_t timestep = startTime;
+    int64_t timestep = 1;
     int numberOfMDs = interfaceNames.size();
     bool flowRateHasBeenPreviouslyEstimated;
     double estimatedFlowRate;
@@ -656,6 +622,11 @@ namespace cfdsim {
     else {
       flowRateHasBeenPreviouslyEstimated = false;
     }
+
+    std::string solver_output("solver_output");
+    solver_output.append(std::to_string(numberOfMDs));
+    ofs.open(solver_output); // Where to put a copy of the output from the solver.
+
     initialise(numberOfMDs);
     //TODO: replace this!
     //int i = 0;
@@ -682,6 +653,7 @@ namespace cfdsim {
     for(int iter_ = 0; iter_ < nIter_; iter_++) {
       int32_t sampleCount = 0;
 
+      //sendData(interfaces, timestep);
       for(int i = 0; (i < nEquilibration) && (!terminate) && (!hasConverged) && (!hasConvergedOverall); i++) {
 	//std::cout << "run:equib: timestep = " << timestep << std::endl;
 
@@ -707,6 +679,7 @@ namespace cfdsim {
 	  }
 
 	  // The initial force is set in the LAMMPS script.
+	  //sendData(interfaces, timestep+NEVERY);
 	  sendData(interfaces, timestep);
 
           double val = double(false);
@@ -799,7 +772,7 @@ namespace cfdsim {
 		halt = true;
 	      }
 
-	      writeCmdFile(nodeDistribution, std::to_string(timestep));
+	      writeCmdFile(nodeDistribution);
 
 	      if(halt) {
 		std::system("mv cmd halt");

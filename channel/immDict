@@ -23,10 +23,10 @@ rhoN            216.63162e+26;
 F               3.25e-13;
 
 nSolverCalls    5;
-numberOfSamplesToAverageOver  1000;
+numberOfSamplesToAverageOver  100;
 
-acceptableError 0.02;
-tolerance 0.02;
+acceptableError 0.002;
+tolerance 0.002;
 
 molMass                       6.6335209e-26;
 
@@ -35,7 +35,17 @@ widthOfRegion                 54.4e-10;
 
 microTimeStep                 1;
 
-numberOfEquilibrationSteps    50000;
-numberOfStepsBetweenSamples   100;
+numberOfEquilibrationSteps    5000;
+numberOfStepsBetweenSamples   10;
+
+push
+(
+  force
+);
+
+fetch
+(
+  mass_flow_x
+);
 
 // ************************************************************************* //

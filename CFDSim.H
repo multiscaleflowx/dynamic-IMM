@@ -28,7 +28,6 @@ namespace cfdsim {
     double forceConversionFactor = 1.44e10;
     double massFlowRateConversionFactor = 1.661e-12;
 
-    int startTime;
     std::set<std::string> inVars;
     std::set<std::string> outVars;
     std::map<std::string, std::map<std::string, double>> outVarValues;
@@ -80,9 +79,9 @@ namespace cfdsim {
 
     void readConfigFile();
 
-    void writeConfigFile(int);
+    void writeConfigFile();
 
-    void writeCmdFile(std::vector<int>, std::string);
+    void writeCmdFile(std::vector<int>);
 
     void createMDForceFile(Region, std::string, std::string);
     
@@ -91,11 +90,9 @@ namespace cfdsim {
 			     std::string,
 			     std::string,
 			     std::string,
-			     std::string,
 			     std::string);
 
     void createRestartedMDFile(Region,
-			       std::string,
 			       std::string,
 			       std::string,
 			       std::string,
