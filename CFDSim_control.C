@@ -10,6 +10,57 @@
 
 namespace cfdsim {
 
+  int CFDSim::countOccurrencesOfSubstring(const std::string& str, const std::string& sub) {
+    int occurrences = 0;
+    std::string::size_type pos = 0;
+    while ((pos = str.find(sub, pos )) != std::string::npos) {
+      ++occurrences;
+      pos += sub.length();
+    }
+    return occurrences;
+  }
+
+  void CFDSim::configureRegions() {
+    std::cout << "Entering configureRegions" << std::endl;
+    std::ifstream cmdFile("cmd");
+    std::string cmd;
+    getline(cmdFile, cmd);
+
+    int count = countOccurrencesOfSubstring(cmd, std::string("mui-lmp"));
+    std::cout << "count = " << count << std::endl;
+
+    maxIndex = 0;
+    if(count > 0) {
+      int n = (count - 1) / 2;
+      maxIndex = n * (n + 2);
+    }
+    std::cout << "maxIndex = " << maxIndex << std::endl;
+
+    for(int j = 0; j < count; j++) {
+      int index = (maxIndex - count) + j + 1;
+      Region r;
+      r.interfaceName = std::to_string(index); // Simulation index
+      r.sNorm = double(j) / count;
+      std::cout << "r = " << r << std::endl;
+      regions.emplace_back(r);
+      interfaceNames.emplace_back(r.interfaceName);
+    }
+    std::cout << "Leaving configureRegions" << std::endl;
+  }
+
+  /*
+  std::vector<std::string> CFDSim::collectInterfaceIndices(const std::string& str) {
+    std::string inMD("in.MD");
+    std::vector<std::string> ifStrings;
+    std::string::size_type pos = 0;
+    while ((pos = str.find(inMD, pos )) != std::string::npos) {
+      std::string ifStr = xxx;
+      ifStrings.emplace_back(ifStr);
+    }
+    return ifStrings;
+  }
+  */
+
   /*
     The CFD class must implement a method to replace that given below.
     The implementation in this file is provided only to allow testing of the rest of the code.
@@ -24,70 +75,25 @@ namespace cfdsim {
   */
   bool CFDSim::changesRequired(int t, int iter) {
     std::cout << "Entering changesRequired" << std::endl;
-    std::ifstream agendaInFile("agenda.txt");
-    std::ofstream agendaOutFile("new_agenda.txt");
-    bool change = false;
 
-    // Get the first line of the file agenda.txt.
-    std::string line;
-    std::getline(agendaInFile, line);
-    std::cout << "AGENDA: " << line << std::endl;
-    std::istringstream iss(line);
-
-    std::string token;
-    iss >> token;
-
-    // Collect the descriptions of the new MD simulations to be created.
-    if(token == std::string("add")) {
-      // Add the new regions.
-      while(iss >> token) {
-	if(token == std::string("subtract"))
-	  break;
-	assert(token == "{");
-	iss >> token;
-	assert(std::stoi(token) > maxIndex);
-	Region r;
-	r.interfaceName = token; // Simulation index
-	iss >> token;
-	r.sNorm = std::stod(token);
-	iss >> token;
-	assert(token == "}");
-	add.emplace_back(r);
-	maxIndex++;
-	change = true;
-      }
-    }
-
-    while(iss >> token) {
-      // Collect the indices of the MD simulations that are no longer needed.
-      assert(token == "{");
-      iss >> token;
-      Region r;
-      r.interfaceName = token; // Simulation index
-      iss >> token;
-      r.sNorm = std::stod(token);
-      iss >> token;
-      assert(token == "}");
+    for(Region r : regions) {
       remove.emplace_back(r);
-      // Do not change max index as indices are never reused.
-      change = true;
     }
 
-    // Copy all but the first line of the file agenda.txt
-    // to new_agenda.txt.
-    while(std::getline(agendaInFile, line)) {
-      agendaOutFile << line << std::endl;
+    int count = interfaceNames.size();
+    if(count == 0) count = 1;
+
+    int numberOfRegionsToCreate = count + 2;
+    for(int i = 0; i < numberOfRegionsToCreate; i++) {
+      int index = maxIndex + 1 + i;
+      Region r;
+      r.interfaceName = std::to_string(index); // Simulation index
+      r.sNorm = double(i) / numberOfRegionsToCreate;
+      std::cout << "The next simulation will contain r = " << r << std::endl;
+      add.emplace_back(r);
     }
-    std::cout << "Closing agenda.txt" << std::endl;
-    agendaInFile.close();
-    std::cout << "Closing new_agenda.txt" << std::endl;
-    agendaOutFile.close();
 
-    // Update agenda.txt.
-    std::cout << "Moving new_agenda.txt" << std::endl;
-    std::system("mv new_agenda.txt agenda.txt");
-
-    std::cout << "Leaving changesRequired: change = " << change << std::endl;
-    return change;
+    std::cout << "Leaving changesRequired" << std::endl;
+    return true;
   }
 }

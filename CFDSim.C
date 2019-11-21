@@ -27,7 +27,8 @@ namespace cfdsim {
 		 const char* name,
 		 const char* openfoamCase,
 		 const IOdictionary& immDict): exeName(exe),cfdFileName(name), caseName(openfoamCase) {
-    readConfigFile();
+    //readConfigFile();
+    configureRegions();
 
     const double length = readScalar(immDict.lookup("length"));
     const double hEnd = readScalar(immDict.lookup("hEnd"));
@@ -76,6 +77,7 @@ namespace cfdsim {
     }
   }
 
+  /*
   void CFDSim::readConfigFile() {
     std::cout << "Entering readConfigFile" << std::endl;
     std::ifstream infs(cfdFileName);
@@ -119,7 +121,9 @@ namespace cfdsim {
     infs.close();
     std::cout << "Leaving readConfigFile" << std::endl;
   }
+  */
 
+  /*
   void CFDSim::writeConfigFile() {
     std::cout << "Entering writeConfigFile" << std::endl;
     std::ifstream cfdInFS(cfdFileName);
@@ -141,6 +145,7 @@ namespace cfdsim {
     std::system(("mv " + newCfdFileName + " " + cfdFileName).c_str());
     std::cout << "Leaving writeConfigFile" << std::endl;
   }
+  */
 
   void CFDSim::writeCmdFile(std::vector<int> nodeDistribution) {
     std::cout << "Entering writeCmdFile" << std::endl;
@@ -367,7 +372,7 @@ namespace cfdsim {
 	//createMDForceFile(r, mdF_str, "0");	
       }
 
-      writeConfigFile();
+      //writeConfigFile();
 
       change = true;
     }

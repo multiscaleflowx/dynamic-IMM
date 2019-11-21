@@ -77,9 +77,13 @@ namespace cfdsim {
 
     void initialise(int);
 
-    void readConfigFile();
+    int countOccurrencesOfSubstring(const std::string&, const std::string&);
 
-    void writeConfigFile();
+    void configureRegions();
+
+    //void readConfigFile();
+
+    //void writeConfigFile();
 
     void writeCmdFile(std::vector<int>);
 
