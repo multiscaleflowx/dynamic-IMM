@@ -1,6 +1,5 @@
-#include <assert.h>
-
 #include "Channel.H"
+#include "common.H"
 
 namespace cfdsim {
 
@@ -16,8 +15,12 @@ namespace cfdsim {
   // and then expands to its original size.
   // s is normalised.
   double Channel::heightAt(double s) {
-    assert(s >= 0.0);
-    assert(s < 1.0);
+    if(s < 0.0) {
+      haltMPMD(" the value supplied to heightAt was negative.");
+    }
+    if(s >= 1.0) {
+      haltMPMD("the value supplied to heightAt was one or greater.");
+    }
     if(s <= 0.5) {
       return (1 - 2*s)*hEnd + 2*s*hNeck;
     }

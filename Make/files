@@ -4,5 +4,6 @@ CFDSim.C
 CFDSim_solver.C
 CFDSim_control.C
 imm.C
+common.C
 
 EXE = $(FOAM_APPBIN)/cfdSim

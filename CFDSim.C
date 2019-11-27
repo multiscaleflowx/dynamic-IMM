@@ -7,21 +7,22 @@
 #include <vector>       // std::vector
 
 #include "CFDSim.H"
-
-std::string exec(const char* cmd) {
-  std::array<char, 128> buffer;
-  std::string result;
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
-  if (!pipe) {
-    throw std::runtime_error("popen() failed!");
-  }
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-    result += buffer.data();
-  }
-  return result;
-}
+#include "common.H"
 
 namespace cfdsim {
+
+  std::string exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+      throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+      result += buffer.data();
+    }
+    return result;
+  }
 
   CFDSim::CFDSim(const char* exe,
 		 const char* name,
@@ -562,9 +563,7 @@ namespace cfdsim {
       hashSet.insert(hash); // These are in lexical order of the hashes.
     }
     if(hashes.size() != hashSet.size()) {
-      std::cout << "ERROR: not all of the hashed names are distinct." << std::endl;
-      // Make sure program terminates even in MPMD mode.
-      MPI_Abort(MPI_COMM_WORLD, 999);
+      haltMPMD("not all of the hashed names are distinct.");
     }
     // It is easier to work with a sorted vector so create one from the sorted hash set.
     std::vector<int> sortedHashes(hashSet.begin(), hashSet.end());
@@ -748,8 +747,7 @@ namespace cfdsim {
 		  std::cout << "Force delta set to " << deltaF_ << std::endl;
 		}
 		else {
-		  std::cout << "Unexpected variable '" << v << "'." << std::endl;
-		  MPI_Abort(MPI_COMM_WORLD, 999);
+		  haltMPMD("unexpected variable.");
 		}
 	      }
 	      posn++;
