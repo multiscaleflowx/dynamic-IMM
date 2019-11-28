@@ -64,8 +64,12 @@ namespace cfdsim {
       word vn = pushVars[v];
       std::ostringstream out;
       out << vn;
-      std::cout << "pushVar: " << out.str() << std::endl;
-      outVars.insert(out.str());
+      std::string outVar = out.str();
+      outVars.insert(outVar);
+      const dictionary& subDict = immDict.subDict(vn);
+      double conversionFactor = readScalar(subDict.lookup("conversionFactor"));
+      outputConversionFactors[outVar] = conversionFactor;
+      std::cout << "pushVar: " << outVar << ", conversionFactor = " << conversionFactor << std::endl;
     }
 
     wordList fetchVars(immDict.lookup("fetch"));
@@ -73,8 +77,12 @@ namespace cfdsim {
       word vn = fetchVars[v];
       std::ostringstream in;
       in << vn;
-      std::cout << "fetchVar: " << in.str() << std::endl;
-      inVars.insert(in.str());
+      std::string inVar = in.str();
+      inVars.insert(inVar);
+      const dictionary& subDict = immDict.subDict(vn);
+      double conversionFactor = readScalar(subDict.lookup("conversionFactor"));
+      inputConversionFactors[inVar] = conversionFactor;
+      std::cout << "fetchVar: " << inVar << ", conversionFactor = " << conversionFactor << std::endl;
     }
   }
 
@@ -338,7 +346,7 @@ namespace cfdsim {
       // Those MDs that existed before this run and are still needed must have
       // restart files created for them.
       for(auto r : updatedRegions) {
-	double mdForce = forceConversionFactor * F_; // TODO: replace F_ by f_[i].
+	double mdForce = outputConversionFactors[std::string("force")] * F_; // TODO: replace F_ by f_[i].
 	std::ostringstream f_strs;
 	f_strs << mdForce;
 	std::string mdF_str = f_strs.str();
@@ -355,7 +363,7 @@ namespace cfdsim {
       for(auto r : add) {
 	updatedRegions.emplace_back(r);
 
-	double mdForce = forceConversionFactor * F_;
+	double mdForce =  outputConversionFactors[std::string("force")] * F_;
 	std::cout << "Writing to MD file: F_ = " << F_ << std::endl;
 	std::cout << "Writing to MD file: mdForce = " << mdForce << std::endl;
 	std::ostringstream f_strs;
@@ -500,9 +508,9 @@ namespace cfdsim {
       std::cout << "After barrier." << std::endl;
       for(std::string var : inVars) {
 	double val = interface->fetch<double>(var);
-	double cfdMassFlowRate = massFlowRateConversionFactor * val;
-	inVarValuesVec[ifn][var].push_back(cfdMassFlowRate);
-	std::cout << "CFD in t = " << t << " " << ifn << ' ' << var << ' ' << cfdMassFlowRate << std::endl;
+	double inputValue = inputConversionFactors[var] * val;
+	inVarValuesVec[ifn][var].push_back(inputValue);
+	std::cout << "CFD in t = " << t << " " << ifn << ' ' << var << ' ' << inputValue << std::endl;
       }
 
       i++;
@@ -523,10 +531,10 @@ namespace cfdsim {
       std::string ifn = reorderedInterfaceNames[i];
 
       for(std::string var : outVars) {
-	double mdForce = forceConversionFactor * outVarValues[ifn][var];
+	double outputValue = outputConversionFactors[var] * outVarValues[ifn][var];
 	std::cout << "outVarValues[" << ifn << "][" << var << "]" << outVarValues[ifn][var] << std::endl;
-        std::cout << "CFD out t = " << t << " " << ifn << ' ' << var << ' ' << mdForce << std::endl;
-        interface->push(var, mdForce);
+        std::cout << "CFD out t = " << t << " " << ifn << ' ' << var << ' ' << outputValue << std::endl;
+        interface->push(var, outputValue);
       }
       interface->commit(t);
 

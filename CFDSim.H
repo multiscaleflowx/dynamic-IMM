@@ -25,11 +25,10 @@ using namespace Foam;
 
 namespace cfdsim {
   class CFDSim {
-    double forceConversionFactor = 1.44e10;
-    double massFlowRateConversionFactor = 1.661e-12;
-
     std::set<std::string> inVars;
     std::set<std::string> outVars;
+    std::map<std::string, double> inputConversionFactors;
+    std::map<std::string, double> outputConversionFactors;
     std::map<std::string, std::map<std::string, double>> outVarValues;
     std::map<std::string, std::map<std::string, std::vector<double>>> inVarValuesVec;
     std::map<std::string, std::map<std::string, std::vector<double>>> averages;
