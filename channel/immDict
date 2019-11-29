@@ -20,8 +20,6 @@ hNeck           34.4e-10;
 
 rhoN            216.63162e+26;
 
-F               3.25e-13;
-
 nSolverCalls    5;
 numberOfSamplesToAverageOver  100;
 
@@ -46,6 +44,7 @@ push
 force
 {
   conversionFactor    1.44e10;
+  initialValue        3.25e-13;
 }
 
 fetch

@@ -38,8 +38,6 @@ namespace cfdsim {
 
     // TODO: Abort if any keyword is not found in the dictionary.
 
-    F_ = readScalar(immDict.lookup("F"));
-    std::cout << "Read in: F_ = " << F_ << std::endl;
     rhoN_ = readScalar(immDict.lookup("rhoN"));
 
     nIter_= readLabel(immDict.lookup("nSolverCalls"));
@@ -69,7 +67,9 @@ namespace cfdsim {
       const dictionary& subDict = immDict.subDict(vn);
       double conversionFactor = readScalar(subDict.lookup("conversionFactor"));
       outputConversionFactors[outVar] = conversionFactor;
-      std::cout << "pushVar: " << outVar << ", conversionFactor = " << conversionFactor << std::endl;
+      double initialValue = readScalar(subDict.lookup("initialValue"));
+      initialValues[outVar] = initialValue;
+      std::cout << "pushVar: " << outVar << ", conversionFactor = " << conversionFactor << ", initialValue = " << initialValue << std::endl;
     }
 
     wordList fetchVars(immDict.lookup("fetch"));
@@ -85,76 +85,6 @@ namespace cfdsim {
       std::cout << "fetchVar: " << inVar << ", conversionFactor = " << conversionFactor << std::endl;
     }
   }
-
-  /*
-  void CFDSim::readConfigFile() {
-    std::cout << "Entering readConfigFile" << std::endl;
-    std::ifstream infs(cfdFileName);
-    std::string keyWord, line, s;
-
-    // Initially OpenFOAM will be run alone and no interfaces will be needed.
-    // Once an MD simulation is required OpenFOAM will be restarted with interfaces
-    // to the required MD simulations.
-    infs >> keyWord;
-    if(keyWord != "regions") {
-      std::cout << "ERROR: '" << keyWord << "' found where 'regions' was expected." << std::endl;
-      // Make sure program terminates even in MPMD mode.
-      MPI_Abort(MPI_COMM_WORLD, 999);
-    }
-    getline(infs, line);
-    std::istringstream str_stream1(line);
-    Region r;
-    std::cout << "regions:";
-    while(str_stream1 >> r) {
-      regions.emplace_back(r);
-      std::cout << " " << r;
-      interfaceNames.emplace_back(r.interfaceName);
-    }
-    std::cout << std::endl;
-
-    infs >> keyWord;
-    if(keyWord != "maxIndex") {
-      std::cout << "ERROR: '" << keyWord << "' found where 'maxIndex' was expected." << std::endl;
-      // Make sure program terminates even in MPMD mode.
-      MPI_Abort(MPI_COMM_WORLD, 999);
-    }
-    infs >> maxIndex;
-    if(interfaceNames.size() == 0) {
-      if(maxIndex != 0) {
-	std::cout << "ERROR: maxIndex '" << maxIndex << "' found where '0' was expected." << std::endl;
-	// Make sure program terminates even in MPMD mode.
-	MPI_Abort(MPI_COMM_WORLD, 999);
-      }
-    }
-
-    infs.close();
-    std::cout << "Leaving readConfigFile" << std::endl;
-  }
-  */
-
-  /*
-  void CFDSim::writeConfigFile() {
-    std::cout << "Entering writeConfigFile" << std::endl;
-    std::ifstream cfdInFS(cfdFileName);
-    std::string newCfdFileName("new_"+cfdFileName);
-    std::ofstream cfdOutFS(newCfdFileName);
-    std::string cfdline;
-
-    cfdOutFS << "regions";
-    for(auto r : updatedRegions) {
-      cfdOutFS << ' ' << r;
-    }
-    cfdOutFS << std::endl;
-
-    cfdOutFS << "maxIndex " << maxIndex << std::endl;
-    cfdOutFS.close();
-
-    cfdInFS.close();
-
-    std::system(("mv " + newCfdFileName + " " + cfdFileName).c_str());
-    std::cout << "Leaving writeConfigFile" << std::endl;
-  }
-  */
 
   void CFDSim::writeCmdFile(std::vector<int> nodeDistribution) {
     std::cout << "Entering writeCmdFile" << std::endl;
@@ -346,7 +276,7 @@ namespace cfdsim {
       // Those MDs that existed before this run and are still needed must have
       // restart files created for them.
       for(auto r : updatedRegions) {
-	double mdForce = outputConversionFactors[std::string("force")] * F_; // TODO: replace F_ by f_[i].
+	double mdForce = outputConversionFactors[std::string("force")] * initialValues["force"]; // TODO: replace F_ by f_[i].
 	std::ostringstream f_strs;
 	f_strs << mdForce;
 	std::string mdF_str = f_strs.str();
@@ -363,8 +293,8 @@ namespace cfdsim {
       for(auto r : add) {
 	updatedRegions.emplace_back(r);
 
-	double mdForce =  outputConversionFactors[std::string("force")] * F_;
-	std::cout << "Writing to MD file: F_ = " << F_ << std::endl;
+	double mdForce =  outputConversionFactors[std::string("force")] * initialValues["force"];
+	std::cout << "Writing to MD file: F_ = " << initialValues["force"] << std::endl;
 	std::cout << "Writing to MD file: mdForce = " << mdForce << std::endl;
 	std::ostringstream f_strs;
 	f_strs << mdForce;
@@ -376,12 +306,7 @@ namespace cfdsim {
 			    std::to_string(nEquilibration),
 			    std::to_string(nStepsBetweenSamples),
 			    std::to_string(nMeasurement));
-
-	//std::cout << "Creating force files for new simulations." << std::endl;
-	//createMDForceFile(r, mdF_str, "0");	
       }
-
-      //writeConfigFile();
 
       change = true;
     }
@@ -645,15 +570,8 @@ namespace cfdsim {
     std::cout << "Set outputs before run." << std::endl;
     for(std::string ifn : interfaceNames) {
       for(std::string v : outVars) {
-	outVarValues[ifn][v] = F_;
+	outVarValues[ifn][v] = initialValues[v];
       }
-      /*
-      f_[i] = F_;
-      f_old_[i] = F_;
-      std::cout << "Before run f_[" << i << "] = " << f_[i] << std::endl;
-      std::cout << "Before run f_old_[" << i << "] = " << f_old_[i] << std::endl;
-      i++;
-      */
     }
     std::cout << "Outputs set before run." << std::endl;
 
@@ -734,13 +652,6 @@ namespace cfdsim {
 	    solve(iter_, numberOfMDs);
 	    hasConverged = hasConverged || (converged(numberOfMDs, meanFlowRate) && (iter_ > 0));
 	    hasConvergedOverall = (iter_ > 0) && convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
-	    /*
-	    if(iter_ == 2) { // TODO: FOR TEST PUPOSES ONLY - REMOVE EVENTUALLY.
-	      hasConverged = true;
-	      ofs << "Asserting convergence at iter_ = 2." << std::endl;
-	      std::cout << "Asserting convergence at iter_ = 2." << std::endl;
-	    }
-	    */
 
 	    int32_t posn = 0;
 	    for(std::string ifn : interfaceNames) {
@@ -748,8 +659,6 @@ namespace cfdsim {
 		if(v == std::string("force")) {
 		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
 		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
-		  //double deltaF_ = f_[posn] - f_old_[posn];
-		  //double deltaF_ = f_old_[posn] - f_[posn];
 		  double deltaF_ = f_[posn];
 		  outVarValues[ifn][v] = deltaF_;
 		  std::cout << "Force delta set to " << deltaF_ << std::endl;
@@ -818,21 +727,6 @@ namespace cfdsim {
 	//  break;
 	//}
       }
-
-      /*
-      // This relies on the regions being correctly ordered.
-      std::cout << "Creating force files at end of iteration " << iter_ << std::endl;
-      sort(regions.begin(), regions.end());
-      int32_t j = 0;
-      for(Region r : regions) {
-	std::ostringstream strs;
-	//strs << f_[j]; // TODO: reinstate this!
-	strs << F_; // TODO: remove this!
-	std::string f_str = strs.str();
-	createMDForceFile(r, f_str, std::to_string(iter_ + 1));
-	j++;
-      }
-      */
     }
     std::cout << "Leaving run" << std::endl;
   }

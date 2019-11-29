@@ -13,6 +13,8 @@ namespace cfdsim {
   void CFDSim::initialise(int nMicro_) {
     Info << nl << "Initialising macro solver" << nl << endl;
 
+    double F_ = initialValues["force"];
+
     s_.setSize(nMicro_, 0.0);
     mDot_.setSize(nMicro_, 0.0);
     k_.setSize(nMicro_, 1.0);
@@ -49,6 +51,7 @@ namespace cfdsim {
 
   void CFDSim::solve(label iter_, label nMicro_) {
     scalar pi = constant::mathematical::pi;
+    double F_ = initialValues["force"];
 
     Info << nl << "iter:" << iter_
 	 << " solving macro equation"

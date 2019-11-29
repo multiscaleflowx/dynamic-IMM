@@ -27,6 +27,7 @@ namespace cfdsim {
   class CFDSim {
     std::set<std::string> inVars;
     std::set<std::string> outVars;
+    std::map<std::string, double> initialValues;
     std::map<std::string, double> inputConversionFactors;
     std::map<std::string, double> outputConversionFactors;
     std::map<std::string, std::map<std::string, double>> outVarValues;
@@ -47,7 +48,6 @@ namespace cfdsim {
 
     label nIter_; // Number of iterations.
     scalar L_; // Length of macro channel.
-    scalar F_; // Body force in Newtons
 
     double time_dt;
     double acceptableError;
