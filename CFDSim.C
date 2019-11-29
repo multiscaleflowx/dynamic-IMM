@@ -101,27 +101,6 @@ namespace cfdsim {
     std::cout << "Leaving writeCmdFile" << std::endl;
   }
 
-  void CFDSim::createMDForceFile(Region r,
-				 std::string f,
-				 std::string a) {
-    std::cout << "Entering createMDForceFile" << std::endl;
-    std::ifstream infs("force_template");
-    std::ofstream outfs("in.force" + r.interfaceName + "_" + a);
-    std::string line;
-    while(getline(infs, line)) {
-      size_t index;
-      while((index = line.find("@f")) != std::string::npos) {
-	line.replace(index, 2, f);
-      }
-      while((index = line.find("@id")) != std::string::npos) {
-	line.replace(index, 3, r.interfaceName);
-      }
-      outfs << line << std::endl;
-    }
-    outfs.close();
-    std::cout << "Leaving createMDForceFile" << std::endl;
-  }
-
   void CFDSim::createInitialMDFile(Region r,
 				   std::string f,
 				   std::string niterM1,
@@ -195,63 +174,7 @@ namespace cfdsim {
 				     std::string nevery,
 				     std::string nsteps) {
     std::cout << "Entering createRestartedMDFile" << std::endl;
-    std::ifstream infs("restarted_MD_template");
-    std::ofstream outfs("in.MD" + r.interfaceName);
-    std::string line;
-    double h = channel.heightAt(r.sNorm);
-    int32_t N = round(rhoN_*lengthOfRegion*widthOfRegion*h/molMass);
-    h = h * 1.0e10; // Convert from metres to Angstroms.
-    double length = lengthOfRegion * 1.0e10;
-    double width = widthOfRegion * 1.0e10;
-    std::cout << "Restarted MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
-    std::ostringstream h_strs;
-    h_strs << h;
-    std::string h_str = h_strs.str();
-    std::ostringstream N_strs;
-    N_strs << N;
-    std::string N_str = N_strs.str();
-    std::ostringstream l_strs;
-    l_strs <<length;
-    std::string l_str = l_strs.str();
-    std::ostringstream w_strs;
-    w_strs << width;
-    std::string w_str = w_strs.str();
-    std::cout << "Restarted MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
-    while(getline(infs, line)) {
-      size_t index;
-      while((index = line.find("@f")) != std::string::npos) {
-	line.replace(index, 2, f);
-      }
-      while((index = line.find("@h")) != std::string::npos) {
-	line.replace(index, 2, h_str);
-      }
-      while((index = line.find("@N")) != std::string::npos) {
-	line.replace(index, 2, N_str);
-      }
-      while((index = line.find("@niterM1")) != std::string::npos) {
-	line.replace(index, 8, niterM1);
-      }
-      while((index = line.find("@id")) != std::string::npos) {
-	line.replace(index, 3, r.interfaceName);
-      }
-      while((index = line.find("@nequib")) != std::string::npos) {
-	line.replace(index, 7, nequib);
-      }
-      while((index = line.find("@nevery")) != std::string::npos) {
-	line.replace(index, 7, nevery);
-      }
-      while((index = line.find("@nsteps")) != std::string::npos) {
-	line.replace(index, 7, nsteps);
-      }
-      while((index = line.find("@l")) != std::string::npos) {
-        line.replace(index, 2, l_str);
-      }
-       while((index = line.find("@w")) != std::string::npos) {
-        line.replace(index, 2, w_str);
-      }
-      outfs << line << std::endl;
-    }
-    std::cout << "Leaving createRestartedMDFile" << std::endl;
+    haltMPMD("this method has not been implemented.");
   }
 
   bool CFDSim::changeMDs(int t, int iter) {

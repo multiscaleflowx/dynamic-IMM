@@ -86,8 +86,6 @@ namespace cfdsim {
 
     void writeCmdFile(std::vector<int>);
 
-    void createMDForceFile(Region, std::string, std::string);
-    
     void createInitialMDFile(Region,
 			     std::string,
 			     std::string,
