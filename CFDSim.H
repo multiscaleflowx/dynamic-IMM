@@ -87,14 +87,14 @@ namespace cfdsim {
     void writeCmdFile(std::vector<int>);
 
     void createInitialMDFile(Region,
-			     std::string,
+			     std::set<std::string>&,
 			     std::string,
 			     std::string,
 			     std::string,
 			     std::string);
 
     void createRestartedMDFile(Region,
-			       std::string,
+			       std::set<std::string>&,
 			       std::string,
 			       std::string,
 			       std::string,
@@ -109,6 +109,8 @@ namespace cfdsim {
     bool calculateNodeDistribution(int, std::vector<int>&);
 
     void solve(label, label);
+
+    void calculateOutputs(int64_t);
 
     //void calculateBodyForces(label, label, std::map<std::string, std::map<std::string, double>>);
 

@@ -1,0 +1,73 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  1.6                                   |
+|   \\  /    A nd           | Web:      http://www.OpenFOAM.org               |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      immDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+length          400e-10;
+hEnd            34.4e-10;
+hNeck           34.4e-10;
+
+rhoN            216.63162e+26;
+
+nSolverCalls    5;
+numberOfSamplesToAverageOver  100;
+
+acceptableError 0.002;
+tolerance 0.002;
+
+molMass                       6.6335209e-26;
+
+lengthOfRegion                80.0e-10;
+widthOfRegion                 54.4e-10;
+
+microTimeStep                 1;
+
+numberOfEquilibrationSteps    5000;
+numberOfStepsBetweenSamples   10;
+
+push
+(
+  force
+  cfd_push_param
+);
+
+force
+{
+  conversionFactor    1.44e10;
+  initialValue        3.25e-13;
+}
+
+cfd_push_param
+{
+  conversionFactor    1.0;
+  initialValue        -1.0;
+}
+
+fetch
+(
+  mass_flow_x
+  cfd_fetch_param
+);
+
+mass_flow_x
+{
+  conversionFactor    1.661e-12;
+}
+
+cfd_fetch_param
+{
+  conversionFactor    1.0;
+}
+
+// ************************************************************************* //

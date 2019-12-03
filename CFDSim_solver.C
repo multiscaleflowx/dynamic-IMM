@@ -7,6 +7,7 @@
 #include <vector>       // std::vector
 
 #include "CFDSim.H"
+#include "common.H"
 
 namespace cfdsim {
 
@@ -223,4 +224,27 @@ namespace cfdsim {
 	  << std::endl;
     }
   }
+
+  void CFDSim::calculateOutputs(int64_t timestep) {
+    int32_t posn = 0;
+    for(std::string ifn : interfaceNames) {
+      for(std::string v : outVars) {
+	if(v == std::string("force")) {
+	  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
+	  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
+	  double deltaF_ = f_[posn];
+	  outVarValues[ifn][v] = deltaF_;
+	  std::cout << "Force delta set to " << deltaF_ << std::endl;
+	}
+	else if(v == std::string("cfd_push_param")) {
+	  outVarValues[ifn][v] = double(timestep);
+	}
+	else {
+	  haltMPMD("unexpected variable.");
+	}
+      }
+      posn++;
+    }
+  }
+
 }

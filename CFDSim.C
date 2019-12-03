@@ -102,13 +102,19 @@ namespace cfdsim {
   }
 
   void CFDSim::createInitialMDFile(Region r,
-				   std::string f,
+				   std::set<std::string>& outVars,
 				   std::string niterM1,
 				   std::string nequib,
 				   std::string nevery,
 				   std::string nsteps) {
     std::cout << "Entering createInitialMDFile" << std::endl;
-    std::ifstream infs("initial_MD_template");
+    std::ifstream infs;
+    if(r.sNorm == 0.0) {
+      infs = std::ifstream("templates/initial_end_MD_template");
+    }
+    else {
+      infs = std::ifstream("templates/initial_MD_template");
+    }
     std::ofstream outfs("in.MD" + r.interfaceName);
     std::string line;
     double h = channel.heightAt(r.sNorm);
@@ -116,7 +122,7 @@ namespace cfdsim {
     h = h * 1.0e10; // Convert from metres to Angstroms.
     double length = lengthOfRegion * 1.0e10;
     double width = widthOfRegion * 1.0e10;
-    std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
+    std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << std::endl;
     std::ostringstream h_strs;
     h_strs << h;
     std::string h_str = h_strs.str();
@@ -129,11 +135,20 @@ namespace cfdsim {
     std::ostringstream w_strs;
     w_strs << width;
     std::string w_str = w_strs.str();
-    std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << ", f = " << f << std::endl;
+    std::cout << "Initial MD file: " << r << ", h = " << h << ", N = " << N << std::endl;
+    std::string atSymb("@");
     while(getline(infs, line)) {
       size_t index;
-      while((index = line.find("@f")) != std::string::npos) {
-	line.replace(index, 2, f);
+      for(std::string var : outVars) {
+	double val =  outputConversionFactors[var] * initialValues[var];
+	std::ostringstream val_strs;
+	val_strs << val;
+	std::string val_str = val_strs.str();
+	std::string v = atSymb + var;
+	std::cout << "Replacing " << v << " by " << val_str << std::endl;
+	while((index = line.find(v)) != std::string::npos) {
+	  line.replace(index, v.size(), val_str);
+	}
       }
       while((index = line.find("@h")) != std::string::npos) {
 	line.replace(index, 2, h_str);
@@ -168,7 +183,7 @@ namespace cfdsim {
   }
 
   void CFDSim::createRestartedMDFile(Region r,
-				     std::string f,
+				     std::set<std::string>& outVars,
 				     std::string niterM1,
 				     std::string nequib,
 				     std::string nevery,
@@ -199,13 +214,8 @@ namespace cfdsim {
       // Those MDs that existed before this run and are still needed must have
       // restart files created for them.
       for(auto r : updatedRegions) {
-	double mdForce = outputConversionFactors[std::string("force")] * initialValues["force"]; // TODO: replace F_ by f_[i].
-	std::ostringstream f_strs;
-	f_strs << mdForce;
-	std::string mdF_str = f_strs.str();
-
 	createRestartedMDFile(r,
-			      mdF_str,
+			      outVars,
 			      std::to_string(nIter_ - 1),
 			      std::to_string(nEquilibration),
 			      std::to_string(nStepsBetweenSamples),
@@ -215,16 +225,8 @@ namespace cfdsim {
       // Add the new interface names and create initial restart files.
       for(auto r : add) {
 	updatedRegions.emplace_back(r);
-
-	double mdForce =  outputConversionFactors[std::string("force")] * initialValues["force"];
-	std::cout << "Writing to MD file: F_ = " << initialValues["force"] << std::endl;
-	std::cout << "Writing to MD file: mdForce = " << mdForce << std::endl;
-	std::ostringstream f_strs;
-	f_strs << mdForce;
-	std::string mdF_str = f_strs.str();
-
 	createInitialMDFile(r,
-			    mdF_str,
+			    outVars,
 			    std::to_string(nIter_ - 1),
 			    std::to_string(nEquilibration),
 			    std::to_string(nStepsBetweenSamples),
@@ -576,24 +578,8 @@ namespace cfdsim {
 	    hasConverged = hasConverged || (converged(numberOfMDs, meanFlowRate) && (iter_ > 0));
 	    hasConvergedOverall = (iter_ > 0) && convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
 
-	    int32_t posn = 0;
-	    for(std::string ifn : interfaceNames) {
-	      for(std::string v : outVars) {
-		if(v == std::string("force")) {
-		  std::cout << "f_[" << posn << "] = " << f_[posn] << std::endl;
-		  std::cout << "f_old_[" << posn << "] = " << f_old_[posn] << std::endl;
-		  double deltaF_ = f_[posn];
-		  outVarValues[ifn][v] = deltaF_;
-		  std::cout << "Force delta set to " << deltaF_ << std::endl;
-		}
-		else {
-		  haltMPMD("unexpected variable.");
-		}
-	      }
-	      posn++;
-	    }
+	    calculateOutputs(timestep);
           }
-	  //std::cout << "Outputs set" << std::endl;
 
           sendData(interfaces, timestep);
 
@@ -702,4 +688,5 @@ namespace cfdsim {
     ofs << "hasConvergedOverall = " << hasConvergedOverall << std::endl;
     return hasConvergedOverall;
   }
+
 }

@@ -1,0 +1,129 @@
+# 3D LJ Poiseuille flow simulation
+
+units		real
+dimension	3
+boundary	p p p
+
+atom_style	atomic
+neighbor	2.0 bin
+neigh_modify	every 1 delay 5 check yes
+
+variable	chnl_ht equal @h/2.15
+variable	chnl_lnth equal @l/2.15
+variable	chnl_wd equal @w/2.15
+variable num_lat_wall_Y equal 3
+variable chnl_Y_coord equal ${chnl_ht}+${num_lat_wall_Y}
+variable dom_upper_limt equal ${chnl_Y_coord}+${num_lat_wall_Y}+1
+variable liq_upper_lim equal ${chnl_Y_coord}-1
+variable liq_lower_lim equal ${num_lat_wall_Y}+1
+
+
+
+variable  molNo  equal  round(0.8654*(@l*@w*@h)/39.948) # calculation is done in real unit system
+
+variable  lat    equal  (@l*@w*2.15*(${liq_upper_lim}-${liq_lower_lim})/${molNo})^0.333333
+variable  length equal  @l/${lat}
+variable  width  equal  @w/${lat}
+variable  minh   equal  ${liq_lower_lim}*2.15/${lat} 
+variable  maxh   equal  ${liq_upper_lim}*2.15/${lat}
+variable  domy   equal  ${dom_upper_limt}+10/2.15
+# create geometry
+
+lattice		sc 2.15	
+region		domain block 0 ${chnl_lnth} -4.65 ${domy} 0 ${chnl_wd}
+create_box	3 domain
+
+region		box1 block 0 ${chnl_lnth} 0 ${num_lat_wall_Y} 0 ${chnl_wd}  
+create_atoms	1 region box1
+
+region		box2 block 0 ${chnl_lnth} ${chnl_Y_coord} ${dom_upper_limt} 0 ${chnl_wd}  
+create_atoms	2 region box2
+
+lattice		  sc ${lat}  #to arrage the water molecules in a lattice and so avoid interference
+region		     box3 block 0 ${length} ${minh} ${maxh} 0 ${width}  
+create_atoms	     3 region box3
+
+
+mass		1 39.948
+mass		2 39.948
+mass		3 39.948
+
+# potentials
+
+pair_style      lj/cut 13.6
+pair_coeff	* * 0.2385 3.4
+
+
+# define groups
+
+group           liquid type 3
+group           lower type 1
+group           upper type 2
+group	        boundary union lower upper
+# minimization
+
+fix		1 lower setforce 0.0 0.0 0.0
+fix		2 upper setforce 0.0 0.0 0.0
+
+minimize        0.0 1.0e-8 1000 100000
+
+# temperature settings
+
+# velocity	liquid create 1.0 100 temp mobile
+fix			3 liquid temp/berendsen 292.8 292.8 100.0
+fix			4 liquid nve
+compute tempMobile liquid temp/com
+fix_modify 3 temp tempMobile
+
+# Poiseuille flow
+
+# Compute total momentum
+compute	        total_mom liquid momentum
+# Compute mass flow rate in x
+variable        mass_flow_x equal "c_total_mom[1]/lx"
+
+# Run
+
+timestep	1
+thermo		500
+#thermo_modify   temp mobile
+
+fix 			5 lower movetravelingwave wiggle 0 0.0 0.25 0.0 20000
+fix 			6 upper movetravelingwave wiggle 10000 0.0 0.25 0.0 20000
+
+variable        shutdown internal 0
+
+variable        force internal @force
+variable        md_in_var internal @cfd_push_param
+variable        md_out_var equal v_md_in_var
+
+fix		cfd all mui/connect md@id @id
+fix		push_mass_flow all mui/push cfd @id PARAM mass_flow_x mass_flow_x EVERY @nevery
+fix		push_test all mui/push cfd @id PARAM cfd_fetch_param md_out_var EVERY @nevery
+fix		fetch_force all mui/fetch_param cfd @id force force EVERY  @nevery
+fix		fetch_test all mui/fetch_param cfd @id cfd_push_param md_in_var EVERY  @nevery
+fix		terminate all mui/shutdown EVERY @nevery
+fix             halt all halt @nevery v_shutdown > 0 error soft
+
+variable        a loop 0 @niterM1
+label		iterative_solve
+
+print "@id: start of iteration $a."
+
+# Equilibration
+
+print "@id: trying to set force."
+
+fix             body_force liquid addforce v_force 0.0 0.0
+
+
+print "@id: start equilibration run$a."
+run		@nequib
+
+# Measurement
+dump            1 all custom 1000 @id.lammpstrj id type x y z
+print "@id: start measurement run$a."
+run		@nsteps
+undump          1
+next		a
+jump		SELF iterative_solve
