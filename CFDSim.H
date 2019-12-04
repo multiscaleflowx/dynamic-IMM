@@ -124,9 +124,11 @@ namespace cfdsim {
 
     bool changesRequired(int, int);
 
-    bool converged(int, double&);
+    bool converged(std::map<std::string, double>&);
 
-    bool convergedOverall(bool, double, double);
+    bool convergedOverall(bool, std::map<std::string, double>&, std::map<std::string, double>&);
+
+    bool getPreviousEstimates(int,  std::map<std::string, double>&);
   };
 }
 

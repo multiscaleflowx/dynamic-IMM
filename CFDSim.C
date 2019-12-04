@@ -54,7 +54,7 @@ namespace cfdsim {
     nEquilibration = readLabel(immDict.lookup("numberOfEquilibrationSteps"));
     nStepsBetweenSamples = readLabel(immDict.lookup("numberOfStepsBetweenSamples"));
 
-    // The number of time steps used to compute an average flow rate.
+    // The number of time steps used to compute the average values.
     nMeasurement = nSamples * nStepsBetweenSamples;
 
     wordList pushVars(immDict.lookup("push"));
@@ -471,19 +471,8 @@ namespace cfdsim {
     bool terminate = false;
     int64_t timestep = 1;
     int numberOfMDs = interfaceNames.size();
-    bool flowRateHasBeenPreviouslyEstimated;
-    double estimatedFlowRate;
-    if(numberOfMDs != 0) {
-      std::ifstream flowRateFileStream("estimatedFlowRate");
-      flowRateHasBeenPreviouslyEstimated = flowRateFileStream.good();
-      if(flowRateHasBeenPreviouslyEstimated) { // File exists.
-	flowRateFileStream >> estimatedFlowRate;
-	flowRateFileStream.close();
-      }
-    }
-    else {
-      flowRateHasBeenPreviouslyEstimated = false;
-    }
+    std::map<std::string, double> previousEstimates;
+    bool previousEstimatesExist = getPreviousEstimates(numberOfMDs, previousEstimates);
 
     std::string solver_output("solver_output");
     solver_output.append(std::to_string(numberOfMDs));
@@ -538,7 +527,7 @@ namespace cfdsim {
       }
 
       std::cout << "run: may start measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
-      double meanFlowRate;
+      std::map<std::string, double> means;
       for(int i = 0; (i < nMeasurement) && (!terminate); i++) {
 	if(i == 0) {
 	  std::cout << "run:start measurement: iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
@@ -559,8 +548,8 @@ namespace cfdsim {
 
 	    std::cout << "SOLVE, iter_ = " << iter_ << ", timestep = " << timestep << std::endl;
 	    solve(iter_, numberOfMDs);
-	    hasConverged = hasConverged || (converged(numberOfMDs, meanFlowRate) && (iter_ > 0));
-	    hasConvergedOverall = (iter_ > 0) && convergedOverall(flowRateHasBeenPreviouslyEstimated, estimatedFlowRate, meanFlowRate);
+	    hasConverged = hasConverged || (converged(means) && (iter_ > 0));
+	    hasConvergedOverall = (iter_ > 0) && convergedOverall(previousEstimatesExist, previousEstimates, means);
 
 	    calculateOutputs(timestep);
           }
@@ -625,21 +614,24 @@ namespace cfdsim {
   }
 
 
-  bool CFDSim::converged(int nMicro_, double& mean) {
+  bool CFDSim::converged(std::map<std::string, double>& means) {
+    int nMicro_ = interfaceNames.size();
+
     if(nMicro_ == 0) {
       return true;
     }
 
     double sum = 0.0;
-    for(label i = 0; i < nMicro_; i++) {
-      sum += mDot_[i];
+    for(std::string ifn : interfaceNames) {
+      sum += averages[ifn][std::string("mass_flow_x")].back();
     }
-
-    mean = sum / nMicro_;
+    double mean = sum / nMicro_;
+    means["mass_flow_x"] = mean;
 
     double variance = 0.0;
-    for(label i = 0; i < nMicro_; i++) {
-      variance += pow(mDot_[i] - mean, 2);
+    for(std::string ifn : interfaceNames) {
+      double valueForRegion = averages[ifn][std::string("mass_flow_x")].back();
+      variance += pow(valueForRegion - mean, 2);
     }
 
     double standardError = std::sqrt(variance / nMicro_);
@@ -648,20 +640,22 @@ namespace cfdsim {
 
     ofs << "The mean is " << mean << " and the normalised error is " << normalisedError << std::endl;
 
-    std::ofstream flowRateFileStream("estimatedFlowRate");
-    flowRateFileStream << mean << std::endl;
-    flowRateFileStream.close();
+    std::ofstream estimatesFileStream("estimates");
+    estimatesFileStream << "mass_flow_x" << ' ' << mean << std::endl;
+    estimatesFileStream.close();
 
     bool hasConverged = normalisedError < acceptableError;
     ofs << "hasConverged = " << hasConverged << std::endl;
     return hasConverged;
   }
 
-  bool CFDSim::convergedOverall(bool previousEstimateExists, double previousEstimate, double meanFlowRate) {
-    if(!previousEstimateExists) {
+  bool CFDSim::convergedOverall(bool previousEstimatesExist, std::map<std::string, double>& previousEstimates, std::map<std::string, double>& means) {
+    if(!previousEstimatesExist) {
       return false;
     }
 
+    double previousEstimate = previousEstimates["mass_flow_x"];
+    double meanFlowRate = means["mass_flow_x"];
     std::cout << "previousEstimate = " << previousEstimate << ", meanFlowRate = " << meanFlowRate << std::endl;
 
     double normalisedChange = std::abs(previousEstimate - meanFlowRate) / meanFlowRate;
@@ -671,6 +665,30 @@ namespace cfdsim {
     bool hasConvergedOverall = normalisedChange < tolerance;
     ofs << "hasConvergedOverall = " << hasConvergedOverall << std::endl;
     return hasConvergedOverall;
+  }
+
+  bool CFDSim::getPreviousEstimates(int numberOfMDs,  std::map<std::string, double>& estimates) {
+    std::cout << "Entering getPreviousEstimates." << std::endl;
+    bool previousEstimatesExist = false;
+    if(numberOfMDs != 0) {
+      std::ifstream estimatesFileStream("estimates");
+      previousEstimatesExist = estimatesFileStream.good();
+      if(previousEstimatesExist) { // File exists.
+	std::cout << "The file 'estimates' exists." << std::endl;
+	std::string line;
+	std::string name;
+	double value;
+	while(getline(estimatesFileStream, line)) {
+	  std::istringstream estimatesStream(line);
+	  estimatesStream >> name;
+	  estimatesStream >> value;
+	  std::cout << "name = " << name << ", value = " << value << std::endl;
+	  estimates[name] = value;
+	}
+	estimatesFileStream.close();
+      }
+    }
+    return previousEstimatesExist;
   }
 
 }
