@@ -23,9 +23,6 @@ rhoN            216.63162e+26;
 nSolverCalls    5;
 numberOfSamplesToAverageOver  100;
 
-acceptableError 0.002;
-tolerance 0.002;
-
 molMass                       6.6335209e-26;
 
 lengthOfRegion                80.0e-10;
@@ -55,6 +52,8 @@ fetch
 mass_flow_x
 {
   conversionFactor    1.661e-12;
+  acceptableError 0.002;
+  tolerance 0.002;
 }
 
 // ************************************************************************* //

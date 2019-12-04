@@ -42,8 +42,6 @@ namespace cfdsim {
 
     nIter_= readLabel(immDict.lookup("nSolverCalls"));
     nSamples = readLabel(immDict.lookup("numberOfSamplesToAverageOver"));
-    acceptableError = readScalar(immDict.lookup("acceptableError"));
-    tolerance = readScalar(immDict.lookup("tolerance"));
 
     molMass = readScalar(immDict.lookup("molMass"));
 
@@ -82,7 +80,11 @@ namespace cfdsim {
       const dictionary& subDict = immDict.subDict(vn);
       double conversionFactor = readScalar(subDict.lookup("conversionFactor"));
       inputConversionFactors[inVar] = conversionFactor;
-      std::cout << "fetchVar: " << inVar << ", conversionFactor = " << conversionFactor << std::endl;
+      double acceptableError = readScalar(subDict.lookup("acceptableError"));
+      acceptableErrors[inVar] = acceptableError;
+      double tolerance = readScalar(subDict.lookup("tolerance"));
+      tolerances[inVar] = tolerance;
+      std::cout << "fetchVar: " << inVar << ", conversionFactor = " << conversionFactor << ", acceptableError = " << acceptableError << ", tolerance = " << tolerance << std::endl;
     }
   }
 
@@ -644,7 +646,7 @@ namespace cfdsim {
     estimatesFileStream << "mass_flow_x" << ' ' << mean << std::endl;
     estimatesFileStream.close();
 
-    bool hasConverged = normalisedError < acceptableError;
+    bool hasConverged = normalisedError < acceptableErrors["mass_flow_x"];
     ofs << "hasConverged = " << hasConverged << std::endl;
     return hasConverged;
   }
@@ -662,7 +664,7 @@ namespace cfdsim {
 
     ofs << "The overall normalised change is " << normalisedChange << std::endl;
 
-    bool hasConvergedOverall = normalisedChange < tolerance;
+    bool hasConvergedOverall = normalisedChange < tolerances["mass_flow_x"];
     ofs << "hasConvergedOverall = " << hasConvergedOverall << std::endl;
     return hasConvergedOverall;
   }

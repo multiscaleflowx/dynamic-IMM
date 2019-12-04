@@ -30,6 +30,8 @@ namespace cfdsim {
     std::map<std::string, double> initialValues;
     std::map<std::string, double> inputConversionFactors;
     std::map<std::string, double> outputConversionFactors;
+    std::map<std::string, double> acceptableErrors;
+    std::map<std::string, double> tolerances;
     std::map<std::string, std::map<std::string, double>> outVarValues;
     std::map<std::string, std::map<std::string, std::vector<double>>> inVarValuesVec;
     std::map<std::string, std::map<std::string, std::vector<double>>> averages;
@@ -50,8 +52,6 @@ namespace cfdsim {
     scalar L_; // Length of macro channel.
 
     double time_dt;
-    double acceptableError;
-    double tolerance;
     int64_t nStepsPerIter; // Total number of micro element steps per iteration.
     int32_t nEquilibration; // Number of equilibration steps.
     int32_t nStepsBetweenSamples;
