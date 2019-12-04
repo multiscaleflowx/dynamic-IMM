@@ -520,15 +520,7 @@ namespace cfdsim {
           sampleCount++;
           if(sampleCount == nSamples) {
 	    calculateAverages();
-	    // This relies on the regions being correctly ordered.
-	    sort(regions.begin(), regions.end());
-	    int32_t j = 0;
-	    for(Region r : regions) {
-	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
-	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")].back();
-	      std::cout << "equib: mDot_[" << j << "] = " << mDot_[j] << std::endl;
-	      j++;
-	    }
+	    setInputs();
 	    clearAccumulators();
 	    sampleCount = 0;
 	  }
@@ -561,15 +553,7 @@ namespace cfdsim {
           if(sampleCount == nSamples) {
 	    //std::cout << "AVERAGE" << std::endl;
 	    calculateAverages();
-	    // This relies on the regions being correctly ordered.
-	    sort(regions.begin(), regions.end());
-	    int32_t j = 0;
-	    for(Region r : regions) {
-	      std::cout << "Sorted: ifn = " << r.interfaceName << std::endl;
-	      mDot_[j] = averages[r.interfaceName][std::string("mass_flow_x")].back();
-	      std::cout << "mDot_[" << j << "] = " << mDot_[j] << std::endl;
-	      j++;
-	    }
+	    setInputs();
 	    clearAccumulators();
 	    sampleCount = 0;
 

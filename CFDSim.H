@@ -80,10 +80,6 @@ namespace cfdsim {
 
     void configureRegions();
 
-    //void readConfigFile();
-
-    //void writeConfigFile();
-
     void writeCmdFile(std::vector<int>);
 
     void createInitialMDFile(Region,
@@ -112,7 +108,7 @@ namespace cfdsim {
 
     void calculateOutputs(int64_t);
 
-    //void calculateBodyForces(label, label, std::map<std::string, std::map<std::string, double>>);
+    void setInputs();
 
     void receiveData(std::vector<std::unique_ptr<mui::uniface<mui::config_3d>>>&,
 		     int);
