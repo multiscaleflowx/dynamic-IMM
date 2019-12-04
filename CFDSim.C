@@ -623,30 +623,34 @@ namespace cfdsim {
       return true;
     }
 
-    double sum = 0.0;
-    for(std::string ifn : interfaceNames) {
-      sum += averages[ifn][std::string("mass_flow_x")].back();
-    }
-    double mean = sum / nMicro_;
-    means["mass_flow_x"] = mean;
-
-    double variance = 0.0;
-    for(std::string ifn : interfaceNames) {
-      double valueForRegion = averages[ifn][std::string("mass_flow_x")].back();
-      variance += pow(valueForRegion - mean, 2);
-    }
-
-    double standardError = std::sqrt(variance / nMicro_);
-
-    double normalisedError = standardError / std::abs(mean);
-
-    ofs << "The mean is " << mean << " and the normalised error is " << normalisedError << std::endl;
-
     std::ofstream estimatesFileStream("estimates");
-    estimatesFileStream << "mass_flow_x" << ' ' << mean << std::endl;
+    bool hasConverged;
+    for(std::string v : inVars) {
+      double sum = 0.0;
+      for(std::string ifn : interfaceNames) {
+	sum += averages[ifn][std::string(v)].back();
+      }
+      double mean = sum / nMicro_;
+      means[v] = mean;
+
+      double variance = 0.0;
+      for(std::string ifn : interfaceNames) {
+	double valueForRegion = averages[ifn][std::string(v)].back();
+	variance += pow(valueForRegion - mean, 2);
+      }
+
+      double standardError = std::sqrt(variance / nMicro_);
+
+      double normalisedError = standardError / std::abs(mean);
+
+      ofs << "For " << v << " the mean is " << mean << " and the normalised error is " << normalisedError << std::endl;
+
+      estimatesFileStream << v << ' ' << mean << std::endl;
+
+      hasConverged = hasConverged && normalisedError < acceptableErrors[v];
+    }
     estimatesFileStream.close();
 
-    bool hasConverged = normalisedError < acceptableErrors["mass_flow_x"];
     ofs << "hasConverged = " << hasConverged << std::endl;
     return hasConverged;
   }
@@ -656,15 +660,19 @@ namespace cfdsim {
       return false;
     }
 
-    double previousEstimate = previousEstimates["mass_flow_x"];
-    double meanFlowRate = means["mass_flow_x"];
-    std::cout << "previousEstimate = " << previousEstimate << ", meanFlowRate = " << meanFlowRate << std::endl;
+    bool hasConvergedOverall;
+    for(std::string v : inVars) {
+      double previousEstimate = previousEstimates[v];
+      double mean = means[v];
+      std::cout << " For " << v << " previousEstimate = " << previousEstimate << ", mean = " << mean << std::endl;
 
-    double normalisedChange = std::abs(previousEstimate - meanFlowRate) / meanFlowRate;
+      double normalisedChange = std::abs(previousEstimate - mean) / mean;
 
-    ofs << "The overall normalised change is " << normalisedChange << std::endl;
+      ofs << "For " << v << " the overall normalised change is " << normalisedChange << std::endl;
 
-    bool hasConvergedOverall = normalisedChange < tolerances["mass_flow_x"];
+      hasConvergedOverall = hasConvergedOverall && normalisedChange < tolerances[v];
+    }
+
     ofs << "hasConvergedOverall = " << hasConvergedOverall << std::endl;
     return hasConvergedOverall;
   }
