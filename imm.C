@@ -3,6 +3,7 @@
 #include "polyMesh.H"
 #include "IFstream.H"
 #include "CFDSim.H"
+#include "common.H"
 
 using namespace Foam;
 
@@ -22,6 +23,14 @@ int main(int argc, char ** argv) {
 
 #include "setRootCase.H"
 #include "createTime.H"
+
+  std::ifstream dictFile("channel/immDict");
+  if(dictFile.good()) {
+    dictFile.close();
+  }
+  else {
+    cfdsim::haltMPMD("the file 'channel/immDict' does not exist.");
+  }
 
   IOdictionary immDict = (IOobject("immDict",
 				   "",

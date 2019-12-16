@@ -28,44 +28,93 @@ namespace cfdsim {
 		 const char* name,
 		 const char* openfoamCase,
 		 const IOdictionary& immDict): exeName(exe),cfdFileName(name), caseName(openfoamCase) {
-    //readConfigFile();
     configureRegions();
 
-    const double length = readScalar(immDict.lookup("length"));
-    const double hEnd = readScalar(immDict.lookup("hEnd"));
-    const double hNeck = readScalar(immDict.lookup("hNeck"));
+    double length;
+    if(!immDict.readIfPresent("length", length)) {
+      haltMPMD("the keyword 'length' is not present in immDict.");
+    }
+    double hEnd;
+    if(!immDict.readIfPresent("hEnd", hEnd)) {
+      haltMPMD("the keyword 'hEnd' is not present in immDict.");
+    }
+    double hNeck;
+    if(!immDict.readIfPresent("hNeck", hNeck)) {
+      haltMPMD("the keyword 'hNeck' is not present in immDict.");
+    }
     channel = Channel(length, hEnd, hNeck);
 
-    // TODO: Abort if any keyword is not found in the dictionary.
+    if(!immDict.readIfPresent("rhoN", rhoN_)) {
+      haltMPMD("the keyword 'rhoN' is not present in immDict.");
+    }
 
-    rhoN_ = readScalar(immDict.lookup("rhoN"));
+    if(!immDict.readIfPresent("nSolverCalls", nIter_)) {
+      haltMPMD("the keyword 'nSolverCalls' is not present in immDict.");
+    }
+    if(!immDict.readIfPresent("numberOfSamplesToAverageOver", nSamples)) {
+      haltMPMD("the keyword 'numberOfSamplesToAverageOver' is not present in immDict.");
+    }
 
-    nIter_= readLabel(immDict.lookup("nSolverCalls"));
-    nSamples = readLabel(immDict.lookup("numberOfSamplesToAverageOver"));
+    if(!immDict.readIfPresent("molMass", molMass)) {
+      haltMPMD("the keyword 'molMass' is not present in immDict.");
+    }
 
-    molMass = readScalar(immDict.lookup("molMass"));
+    if(!immDict.readIfPresent("lengthOfRegion", lengthOfRegion)) {
+      haltMPMD("the keyword 'lengthOfRegion' is not present in immDict.");
+    }
+    if(!immDict.readIfPresent("widthOfRegion", widthOfRegion)) {
+      haltMPMD("the keyword 'widthOfRegion' is not present in immDict.");
+    }
 
-    lengthOfRegion = readScalar(immDict.lookup("lengthOfRegion"));
-    widthOfRegion = readScalar(immDict.lookup("widthOfRegion"));
-
-    time_dt = readScalar(immDict.lookup("microTimeStep"));
-    nEquilibration = readLabel(immDict.lookup("numberOfEquilibrationSteps"));
-    nStepsBetweenSamples = readLabel(immDict.lookup("numberOfStepsBetweenSamples"));
+    if(!immDict.readIfPresent("microTimeStep",  time_dt)) {
+      haltMPMD("the keyword 'microTimeStep' is not present in immDict.");
+    }
+    if(!immDict.readIfPresent("numberOfEquilibrationSteps", nEquilibration)) {
+      haltMPMD("the keyword 'numberOfEquilibrationSteps' is not present in immDict.");
+    }
+    if(!immDict.readIfPresent("numberOfStepsBetweenSamples", nStepsBetweenSamples)) {
+      haltMPMD("the keyword 'numberOfStepsBetweenSamples' is not present in immDict.");
+    }
 
     // The number of time steps used to compute the average values.
     nMeasurement = nSamples * nStepsBetweenSamples;
 
-    wordList pushVars(immDict.lookup("push"));
+    wordList pushVars;
+    if(!immDict.readIfPresent("push", pushVars)) {
+      haltMPMD("the keyword 'push' is not present in immDict.");
+    }
     forAll(pushVars, v) {
       word vn = pushVars[v];
       std::ostringstream out;
       out << vn;
       std::string outVar = out.str();
       outVars.insert(outVar);
+
+      bool isSubDict = immDict.isDict(vn);
+      if(!isSubDict) {
+	std::string msg("the keyword '");
+	msg.append(vn);
+	msg.append("' does not denote a subdictionary of immDict");
+	haltMPMD(msg.c_str());
+      }
       const dictionary& subDict = immDict.subDict(vn);
-      double conversionFactor = readScalar(subDict.lookup("conversionFactor"));
+
+      double conversionFactor;
+      if(!subDict.readIfPresent("conversionFactor", conversionFactor)) {
+	std::string msg("the keyword 'conversionFactor' is not present in the subdictionary ");
+	msg.append(vn);
+	msg.append(".");
+	haltMPMD(msg.c_str());
+      }
       outputConversionFactors[outVar] = conversionFactor;
-      double initialValue = readScalar(subDict.lookup("initialValue"));
+
+      double initialValue;
+      if(!subDict.readIfPresent("initialValue", initialValue)) {
+	std::string msg("the keyword 'initialValue' is not present in the subdictionary ");
+	msg.append(vn);
+	msg.append(".");
+	haltMPMD(msg.c_str());
+      }
       initialValues[outVar] = initialValue;
       std::cout << "pushVar: " << outVar << ", conversionFactor = " << conversionFactor << ", initialValue = " << initialValue << std::endl;
     }
@@ -77,12 +126,41 @@ namespace cfdsim {
       in << vn;
       std::string inVar = in.str();
       inVars.insert(inVar);
+
+      bool isSubDict = immDict.isDict(vn);
+      if(!isSubDict) {
+	std::string msg("the keyword '");
+	msg.append(vn);
+	msg.append("' does not denote a subdictionary of immDict");
+	haltMPMD(msg.c_str());
+      }
       const dictionary& subDict = immDict.subDict(vn);
-      double conversionFactor = readScalar(subDict.lookup("conversionFactor"));
+
+      double conversionFactor;
+      if(!subDict.readIfPresent("conversionFactor", conversionFactor)) {
+	std::string msg("the keyword 'conversionFactor' is not present in the subdictionary ");
+	msg.append(vn);
+	msg.append(".");
+	haltMPMD(msg.c_str());
+      }
       inputConversionFactors[inVar] = conversionFactor;
-      double acceptableError = readScalar(subDict.lookup("acceptableError"));
+
+      double acceptableError;
+      if(!subDict.readIfPresent("acceptableError", acceptableError)) {
+	std::string msg("the keyword 'acceptableError' is not present in the subdictionary ");
+	msg.append(vn);
+	msg.append(".");
+	haltMPMD(msg.c_str());
+      }
       acceptableErrors[inVar] = acceptableError;
-      double tolerance = readScalar(subDict.lookup("tolerance"));
+
+      double tolerance;
+      if(!subDict.readIfPresent("tolerance", tolerance)) {
+	std::string msg("the keyword 'tolerance' is not present in the subdictionary ");
+	msg.append(vn);
+	msg.append(".");
+	haltMPMD(msg.c_str());
+      }
       tolerances[inVar] = tolerance;
       std::cout << "fetchVar: " << inVar << ", conversionFactor = " << conversionFactor << ", acceptableError = " << acceptableError << ", tolerance = " << tolerance << std::endl;
     }
@@ -113,9 +191,15 @@ namespace cfdsim {
     std::ifstream infs;
     if(r.sNorm == 0.0) {
       infs = std::ifstream("templates/initial_end_MD_template");
+      if(!infs.good()) {
+	haltMPMD("the file 'templates/initial_end_MD_template' does not exist.");
+      }
     }
     else {
       infs = std::ifstream("templates/initial_MD_template");
+      if(!infs.good()) {
+	haltMPMD("the file 'templates/initial_MD_template' does not exist.");
+      }
     }
     std::ofstream outfs("in.MD" + r.interfaceName);
     std::string line;
@@ -614,7 +698,6 @@ namespace cfdsim {
     }
     std::cout << "Leaving run" << std::endl;
   }
-
 
   bool CFDSim::converged(std::map<std::string, double>& means) {
     int nMicro_ = interfaceNames.size();
