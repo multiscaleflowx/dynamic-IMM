@@ -338,35 +338,6 @@ namespace cfdsim {
     return std::stoi(result);
   }
 
-  int CFDSim::countNodes(MPI_Comm comm) {
-    std::cout << "Entering countNodes" << std::endl;
-    char processorName[MPI_MAX_PROCESSOR_NAME];
-    int nameLength;
-    MPI_Get_processor_name(processorName, &nameLength);
-
-    int size;
-    MPI_Comm_size(comm, &size);
-    char processorNames[size*nameLength];
-    int recvCounts[size];
-    int displacements[size];
-    for(int i = 0; i < size; i++) {
-      recvCounts[i] = nameLength;
-      displacements[i] = i*nameLength;
-    }
-    MPI_Allgatherv(processorName, nameLength, MPI_CHAR, processorNames,
-                   recvCounts, displacements, MPI_CHAR, comm);
-
-    std::set<std::string> names;
-    for(int i = 0; i < size; i++) {
-      char *name_p = processorNames + displacements[i];
-      std::string name(name_p, nameLength);
-      names.insert(name);
-    }
-
-    std::cout << "Leaving countNodes" << std::endl;
-    return names.size();
-  }
-
   bool CFDSim::calculateNodeDistribution(int nNodes,
 					 std::vector<int>& nodeDistribution) {
     std::cout << "Entering calculateNodeDistribution" << std::endl;
@@ -551,7 +522,7 @@ namespace cfdsim {
     std::cout << "A: nNodes = " << nNodes << std::endl;
     int nMDNodes = nNodes-1;
 
-    int NEVERY = nStepsBetweenSamples; //TODO: replace NEVERY?
+    int NEVERY = nStepsBetweenSamples;
 
     bool halt = false;
     bool terminate = false;
@@ -738,7 +709,9 @@ namespace cfdsim {
     return hasConverged;
   }
 
-  bool CFDSim::convergedOverall(bool previousEstimatesExist, std::map<std::string, double>& previousEstimates, std::map<std::string, double>& means) {
+  bool CFDSim::convergedOverall(bool previousEstimatesExist,
+				std::map<std::string, double>& previousEstimates,
+				std::map<std::string, double>& means) {
     if(!previousEstimatesExist) {
       return false;
     }
@@ -760,7 +733,8 @@ namespace cfdsim {
     return hasConvergedOverall;
   }
 
-  bool CFDSim::getPreviousEstimates(int numberOfMDs,  std::map<std::string, double>& estimates) {
+  bool CFDSim::getPreviousEstimates(int numberOfMDs,
+				    std::map<std::string, double>& estimates) {
     std::cout << "Entering getPreviousEstimates." << std::endl;
     bool previousEstimatesExist = false;
     if(numberOfMDs != 0) {

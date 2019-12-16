@@ -98,8 +98,6 @@ namespace cfdsim {
 
     bool changeMDs(int, int);
 
-    int countNodes(MPI_Comm);
-
     int countNodes();
 
     bool calculateNodeDistribution(int, std::vector<int>&);
