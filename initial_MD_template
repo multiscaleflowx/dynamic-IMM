@@ -9,6 +9,8 @@ neighbor	2.0 bin
 neigh_modify	every 1 delay 5 check yes
 
 variable	chnl_ht equal @h/2.15
+variable	chnl_lnth equal @l/2.15
+variable	chnl_wd equal @w/2.15
 variable num_lat_wall_Y equal 3
 variable chnl_Y_coord equal ${chnl_ht}+${num_lat_wall_Y}
 variable dom_upper_limt equal ${chnl_Y_coord}+${num_lat_wall_Y}+1
@@ -16,23 +18,25 @@ variable liq_upper_lim equal ${chnl_Y_coord}-1
 variable liq_lower_lim equal ${num_lat_wall_Y}+1
 
 
-variable  molNo  equal  round(0.8654*(80*54.4*@h)/39.948) # calculation is done in real unit system
 
-variable  lat    equal  (80*54.4*2.15*(${liq_upper_lim}-${liq_lower_lim})/${molNo})^0.333333
-variable  length equal  80/${lat}
-variable  width  equal  54.4/${lat}
+variable  molNo  equal  round(0.8654*(@l*@w*@h)/39.948) # calculation is done in real unit system
+
+variable  lat    equal  (@l*@w*2.15*(${liq_upper_lim}-${liq_lower_lim})/${molNo})^0.333333
+variable  length equal  @l/${lat}
+variable  width  equal  @w/${lat}
 variable  minh   equal  ${liq_lower_lim}*2.15/${lat} 
 variable  maxh   equal  ${liq_upper_lim}*2.15/${lat}
+
 # create geometry
 
 lattice		sc 2.15	
-region		domain block 0 @l 0 ${dom_upper_limt} 0 @w
+region		domain block 0 ${chnl_lnth} 0 ${dom_upper_limt} 0 ${chnl_wd}
 create_box	3 domain
 
-region		box1 block 0 @l 0 ${num_lat_wall_Y} 0 @w  
+region		box1 block 0 ${chnl_lnth} 0 ${num_lat_wall_Y} 0 ${chnl_wd}  
 create_atoms	1 region box1
 
-region		box2 block 0 @l ${chnl_Y_coord} ${dom_upper_limt} 0 @w  
+region		box2 block 0 ${chnl_lnth} ${chnl_Y_coord} ${dom_upper_limt} 0 ${chnl_wd}  
 create_atoms	2 region box2
 
 lattice		  sc ${lat}  #to arrage the water molecules in a lattice and so avoid interference
@@ -86,14 +90,15 @@ thermo		500
 
 variable        shutdown internal 0
 
-variable        force internal @f
+variable        force internal @force
+
 fix		cfd all mui/connect md@id @id
 fix		push_mass_flow all mui/push cfd @id PARAM mass_flow_x mass_flow_x EVERY @nevery
-fix		fetchforce all mui/fetch_param cfd @id force force EVERY  @nevery
+fix		fetch_force all mui/fetch_param cfd @id force force EVERY  @nevery
 fix		terminate all mui/shutdown EVERY @nevery
 fix             halt all halt @nevery v_shutdown > 0 error soft
 
-reset_timestep  @t
+reset_timestep  0
 
 variable        a loop 0 @niterM1
 label		iterative_solve
